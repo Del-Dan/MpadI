@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAYM Store</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#1a1a1a',
+                        accent: '#e11d48', // premium red
+                        light: '#f9fafb',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-900">
+
+    <!-- APP CONTAINER -->
+    <div id="app" class="relative min-h-screen pb-20">
+
+        <!-- HEADER -->
+        <header
+            class="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm transition-all duration-300">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <!-- Logo -->
+                    <div class="flex-shrink-0 cursor-pointer" onclick="App.renderHome()">
+                        <h1 class="text-2xl font-bold tracking-tighter text-brand">FAYM<span
+                                class="text-accent">.</span></h1>
+                    </div>
+
+                    <!-- Search & Cart -->
+                    <div class="flex items-center space-x-6">
+                        <button onclick="App.toggleCart()"
+                            class="relative p-2 text-gray-600 hover:text-brand transition-colors">
+                            <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+                            <span id="cart-badge"
+                                class="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-accent rounded-full opacity-0 transition-opacity">0</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT AREA -->
+        <main id="main-content" class="pt-20">
+            <!-- Loading State -->
+            <div class="flex flex-col items-center justify-center min-h-[60vh]">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand"></div>
+                <p class="mt-4 text-gray-500 text-sm animate-pulse">Loading Store...</p>
+            </div>
+        </main>
+
+        <!-- PRODUCT MODAL -->
+        <div id="product-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog"
+            aria-modal="true">
+            <div class="fixed inset-0 bg-black bg-opacity-70 transition-opacity backdrop-blur-sm"
+                onclick="App.closeModal()"></div>
+            <div class="fixed inset-0 overflow-y-auto">
+                <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+                    <div
+                        class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+                        <!-- Content Rendered Here -->
+                        <div id="modal-content" class="bg-white"></div>
+                        <button onclick="App.closeModal()"
+                            class="absolute top-4 right-4 text-gray-400 hover:text-gray-500 bg-white rounded-full p-1 shadow-sm">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CART DRAWER -->
+        <div id="cart-drawer" class="fixed inset-0 z-[70] hidden">
+            <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onclick="App.toggleCart()"></div>
+            <div class="fixed inset-y-0 right-0 flex max-w-full pl-10 pointer-events-none">
+                <div class="w-screen max-w-md transform transition duration-500 ease-in-out bg-white shadow-xl pointer-events-auto flex flex-col h-full"
+                    id="cart-panel">
+                    <div class="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+                        <div class="flex items-start justify-between">
+                            <h2 class="text-lg font-medium text-gray-900">Shopping Cart</h2>
+                            <button onclick="App.toggleCart()"
+                                class="ml-3 flex h-7 items-center text-gray-400 hover:text-gray-500">
+                                <i data-lucide="x" class="w-6 h-6"></i>
+                            </button>
+                        </div>
+                        <div class="mt-8">
+                            <ul id="cart-items" class="divide-y divide-gray-200">
+                                <!-- Cart Items Rendered Here -->
+                                <div class="text-center py-10 text-gray-500">Your cart is empty.</div>
+                            </ul>
+                        </div>
+                    </div>
+                    <!-- Footer -->
+                    <div class="border-t border-gray-200 px-4 py-6 sm:px-6 bg-gray-50">
+                        <div class="flex justify-between text-base font-medium text-gray-900 mb-4">
+                            <p>Subtotal</p>
+                            <p id="cart-total">GHS 0.00</p>
+                        </div>
+                        <button onclick="App.goToCheckout()"
+                            class="w-full flex items-center justify-center rounded-md border border-transparent bg-brand px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-black transition-colors">
+                            Checkout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT Logic -->
+    <script>
+        /**
+         * FAYM Store Frontend Logic
+         * Uses local storage for cart and fetches data from Google Apps Script.
+         */
+
+        // ================= CONFIGURATION =================
+        // REPLACE THIS URL WITH YOUR DEPLOYED APPS SCRIPT URL
+        const API_URL = "YOUR_WEB_APP_URL_HERE";
+
+        const STATE = {
+            products: [], // Loaded from backend
+            inventory: {}, // Map of sku -> details
+            config: {},
+            locations: [],
+            cart: JSON.parse(localStorage.getItem('faym_cart')) || [],
+            currentProduct: null, // For modal
+            loading: true
+        };
+
+        // ================= APP CONTROLLER =================
+        const App = {
+            async init() {
+                try {
+                    if (API_URL === "https://script.google.com/macros/s/AKfycbzxG09tYFfcV7ben74vi6TjQXnqZ6DB3hLnW7PVMRoW24BaQpnqvyH6GZ48A8GO38kc/exec") {
+                        console.warn("API URL NOT SET");
+                        this.renderError("Please configure the API URL in index.html to connect to your store.");
+                        return;
+                    }
+
+                    const response = await fetch(`${API_URL}?action=getStoreData`);
+                    const data = await response.json();
+
+                    STATE.products = data.products;
+                    STATE.config = data.config;
+                    STATE.locations = data.locations;
+
+                    // Process Inventory functionality
+                    data.inventory.forEach(inv => {
+                        STATE.inventory[inv.sku_id] = inv;
+                    });
+
+                    STATE.loading = false;
+                    this.renderHome();
+                    this.updateCartUI();
+                    lucide.createIcons();
+                } catch (error) {
+                    console.error(error);
+                    this.renderError("Failed to load store. Please try again later.");
+                }
+            },
+
+            // --- NAVIGATION & VIEWS ---
+
+            renderHome() {
+                const main = document.getElementById('main-content');
+
+                // 1. Hero Section
+                let heroHtml = '';
+                // Check if we have active slides in config
+                // Convention: hero_slide_1, hero_text_1...
+                // Only showing one main hero for simplicity or logic for slider can be added
+                const heroImage = STATE.config['hero_slide_1'] || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop';
+                const heroText = STATE.config['hero_text_1'] || 'New Arrivals';
+
+                heroHtml = `
+                    <div class="relative h-[60vh] w-full bg-gray-900 overflow-hidden mb-10">
+                        <img src="${heroImage}" class="w-full h-full object-cover opacity-80" alt="Hero">
+                        <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+                            <h1 class="text-4xl md:text-6xl font-extrabold text-white tracking-tight mb-4 drop-shadow-lg">${heroText}</h1>
+                            ${STATE.config['promo_banner_text'] ?
+                        `<p class="text-xl text-yellow-300 font-semibold mb-6 px-4 py-2 bg-black/40 rounded-full backdrop-blur-sm">${STATE.config['promo_banner_text']}</p>` : ''}
+                            <button onclick="document.getElementById('product-grid').scrollIntoView({behavior: 'smooth'})" class="px-8 py-3 bg-white text-brand font-bold rounded-full hover:bg-gray-100 transition-colors shadow-lg">
+                                Shop Now
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                // 2. Product Grid
+                // Group products by 'parent_code' to show one card per design? Or standard list.
+                // User said: "product code(this can be in mutiple rows to account for desin that have multuiple cours but same design )"
+                // "Product Master" rows are color variants. 
+                // We should display unique Color Variants as cards? Or group by parent?
+                // Standard E-com: Show each color variant as a product card is usually easier for "Shop All".
+
+                const productCards = STATE.products.map(p => {
+                    const hasDiscount = p.discount_active === true || p.discount_active === "TRUE";
+                    const priceDisplay = hasDiscount
+                        ? `<span class="text-gray-400 line-through text-sm mr-2">GHS ${p.base_price}</span> <span class="text-accent font-bold">GHS ${p.discount_price}</span>`
+                        : `<span class="text-brand font-bold">GHS ${p.base_price}</span>`;
+
+                    const isSoldOut = this.checkIfDesignSoldOut(p.sub_code); // Optional helper
+
+                    return `
+                        <div class="group relative bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer" onclick="App.openProductModal('${p.sub_code}')">
+                            <div class="aspect-w-3 aspect-h-4 bg-gray-200 overflow-hidden">
+                                <img src="${p.main_image_url}" alt="${p.product_name}" class="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-500">
+                                ${hasDiscount ? '<div class="absolute top-2 left-2 bg-accent text-white text-xs font-bold px-2 py-1 rounded">SALE</div>' : ''}
+                            </div>
+                            <div class="p-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h3 class="text-sm text-gray-500 uppercase tracking-wider mb-1">${p.category || 'Apparel'}</h3>
+                                        <h2 class="text-lg font-bold text-gray-900 leading-tight mb-1 group-hover:text-accent transition-colors">${p.product_name}</h2>
+                                        <p class="text-sm text-gray-500 mb-2">${p.color_name}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-2 flex items-center justify-between">
+                                    <div>${priceDisplay}</div>
+                                    <button class="bg-gray-100 p-2 rounded-full hover:bg-brand hover:text-white transition-colors">
+                                        <i data-lucide="plus" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                main.innerHTML = `
+                    ${heroHtml}
+                    <div id="product-grid" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+                        <h2 class="text-2xl font-bold mb-8">Latest Collection</h2>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 gap-y-10">
+                            ${productCards || '<p class="col-span-full text-center text-gray-500">No products found.</p>'}
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+            },
+
+            renderCheckoutPage() {
+                const main = document.getElementById('main-content');
+                if (STATE.cart.length === 0) {
+                    this.renderHome();
+                    App.toggleCart();
+                    return;
+                }
+
+                // Calculate Totals
+                const subtotal = STATE.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                const deliveryOptions = STATE.locations.map(l => `<option value="${l.delivery_price}" data-name="${l.zone_name}">${l.zone_name} - GHS ${l.delivery_price}</option>`).join('');
+
+                main.innerHTML = `
+                    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                        <button onclick="App.renderHome()" class="flex items-center text-sm text-gray-500 hover:text-brand mb-6">
+                            <i data-lucide="arrow-left" class="w-4 h-4 mr-1"></i> Continue Shopping
+                        </button>
+                        
+                        <h1 class="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
+                        
+                        <div class="bg-white shadow-lg rounded-2xl overflow-hidden border border-gray-100 p-6 md:p-8">
+                            <form id="checkout-form" onsubmit="App.handleOrderSubmit(event)" class="space-y-6">
+                                
+                                <!-- Contact -->
+                                <div>
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">1. Contact Info</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                                            <input type="text" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand focus:ring-brand border p-2">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Phone Number</label>
+                                            <input type="tel" name="phone" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand focus:ring-brand border p-2" placeholder="0XXXXXXXXX">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Delivery -->
+                                <div>
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">2. Delivery Details</h3>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Select Zone</label>
+                                            <select name="location_zone" id="delivery-select" onchange="App.updateOrderTotal()" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2">
+                                                <option value="0" data-name="Pickup">Store Pickup (Free)</option>
+                                                ${deliveryOptions}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Specific Location / Address</label>
+                                            <div class="flex gap-2">
+                                                 <input type="text" name="location_text" id="loc-text" required class="flex-1 mt-1 rounded-md border-gray-300 shadow-sm border p-2" placeholder="House No, Street Name, Landmark...">
+                                                 <button type="button" onclick="App.getGeoLocation()" class="mt-1 px-3 py-2 bg-gray-100 text-gray-600 rounded-md border hover:bg-gray-200 text-sm">
+                                                    <i data-lucide="map-pin" class="w-4 h-4 inline"></i> Use GPS
+                                                 </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Payment -->
+                                <div>
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">3. Payment Method</h3>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <label class="relative border rounded-lg p-4 cursor-pointer hover:border-brand flex flex-col items-center gap-2">
+                                            <input type="radio" name="payment_method" value="Mobile Money" checked class="accent-brand">
+                                            <span class="font-bold">Mobile Money</span>
+                                        </label>
+                                        <label class="relative border rounded-lg p-4 cursor-pointer hover:border-brand flex flex-col items-center gap-2">
+                                            <input type="radio" name="payment_method" value="Bank Transfer" class="accent-brand">
+                                            <span class="font-bold">Bank Transfer</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Summary -->
+                                <div class="bg-gray-50 p-4 rounded-lg mt-6">
+                                    <div class="flex justify-between text-sm text-gray-600 mb-2">
+                                        <span>Subtotal</span>
+                                        <span>GHS ${subtotal.toFixed(2)}</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm text-gray-600 mb-2">
+                                        <span>Delivery</span>
+                                        <span id="checkout-delivery">GHS 0.00</span>
+                                    </div>
+                                    <div class="flex justify-between text-lg font-bold text-gray-900 border-t pt-2 mt-2">
+                                        <span>Total to Pay</span>
+                                        <span id="checkout-total">GHS ${subtotal.toFixed(2)}</span>
+                                    </div>
+                                </div>
+
+                                <button type="submit" id="place-order-btn" class="w-full bg-brand text-white font-bold text-lg py-4 rounded-lg shadow-lg hover:bg-gray-800 transition-transform active:scale-95">
+                                    Place Order
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                window.scrollTo(0, 0);
+                lucide.createIcons();
+            },
+
+            renderSuccessPage(result, paymentDetails) {
+                const main = document.getElementById('main-content');
+
+                // Dynamic Payment Instructions
+                let instructions = '';
+                if (paymentDetails.method === 'Mobile Money') {
+                    instructions = `
+                        <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4 text-left">
+                            <p class="text-sm font-bold text-blue-800 mb-1">Mobile Money Instructions:</p>
+                            <p class="text-sm text-blue-700">1. Send <b>GHS ${paymentDetails.total}</b> to <b>${STATE.config['bank_acc_num'] || 'N/A'}</b> (${STATE.config['bank_acc_name'] || 'FAYM'}).</p>
+                            <p class="text-sm text-blue-700">2. Use Reference: <span class="font-mono font-bold bg-white px-1 select-all">${result.parentRef}</span></p>
+                            <p class="text-sm text-blue-700">3. Enter the Transaction ID below.</p>
+                        </div>
+                     `;
+                } else {
+                    instructions = `
+                        <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4 text-left">
+                            <p class="text-sm font-bold text-blue-800 mb-1">Bank Instructions:</p>
+                            <p class="text-sm text-blue-700">Bank: ${STATE.config['bank_name']}</p>
+                            <p class="text-sm text-blue-700">Account: ${STATE.config['bank_acc_name']}</p>
+                            <p class="text-sm text-blue-700">Number: ${STATE.config['bank_acc_num']}</p>
+                            <p class="text-sm text-blue-700 font-bold mt-1">Reference: ${result.parentRef}</p>
+                        </div>
+                     `;
+                }
+
+                main.innerHTML = `
+                    <div class="max-w-xl mx-auto px-4 py-16 text-center">
+                        <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i data-lucide="check" class="w-10 h-10"></i>
+                        </div>
+                        <h1 class="text-3xl font-bold text-gray-900 mb-2">Order Placed!</h1>
+                        <p class="text-gray-500 mb-8">Stock has been reserved for you.</p>
+
+                        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mb-8">
+                            <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Your Order Reference</p>
+                            <div class="text-2xl font-mono font-bold text-brand bg-gray-50 py-3 rounded-lg border border-dashed border-gray-300 mb-4 select-all cursor-copy">
+                                ${result.parentRef}
+                            </div>
+                            
+                            ${instructions}
+
+                            <!-- TRANSACTION ID FORM -->
+                            <form onsubmit="App.handlePaymentSubmit(event, '${result.orderId}')" class="mt-6 pt-6 border-t border-gray-100">
+                                <label class="block text-sm font-medium text-gray-700 mb-2 text-left">Confirm Payment (Required)</label>
+                                <input type="text" name="transaction_id" required placeholder="Enter Transaction ID (e.g. 123456789)" class="w-full border-gray-300 rounded-md shadow-sm border p-3 focus:border-green-500 focus:ring-green-500 mb-3">
+                                <button type="submit" id="payment-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-md transition-colors shadow-md">
+                                    Submit Payment Confirmation
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <button onclick="window.location.reload()" class="text-gray-500 hover:text-brand underline text-sm">Return Home</button>
+                    </div>
+                 `;
+                lucide.createIcons();
+            },
+
+            renderError(msg) {
+                const main = document.getElementById('main-content');
+                main.innerHTML = `<div class="p-10 text-center text-red-500 font-bold">${msg}</div>`;
+            },
+
+
+            // --- MODALS & DRAWERS ---
+
+            openProductModal(subCode) {
+                const product = STATE.products.find(p => p.sub_code === subCode);
+                if (!product) return;
+
+                STATE.currentProduct = product;
+                // Find all colors siblings (same parent_code)
+                const siblings = STATE.products.filter(p => p.parent_code === product.parent_code);
+
+                // Inventory for sizes
+                const inventoryItems = Object.values(STATE.inventory).filter(i => i.sub_code === subCode);
+                const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
+
+                const modal = document.getElementById('product-modal');
+                const content = document.getElementById('modal-content');
+
+                const hasDiscount = product.discount_active === true || product.discount_active === "TRUE";
+
+                // Generate Size Buttons
+                const sizeHtml = sizes.map(size => {
+                    const item = inventoryItems.find(i => i.size === size);
+                    const stock = item ? item.stock_qty : 0;
+                    const isLow = stock > 0 && stock < (item.low_stock_threshold || 5);
+                    const disabled = stock <= 0;
+
+                    return `
+                        <button onclick="App.selectSize('${size}', ${stock})" id="size-btn-${size}" 
+                            class="relative min-w-[3rem] h-12 rounded-md border text-sm font-medium transition-all
+                            ${disabled ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-white text-gray-900 hover:border-brand cursor-pointer focus:ring-2 focus:ring-brand focus:ring-offset-1'}
+                            ">
+                            ${size}
+                            ${isLow ? '<span class="absolute -top-2 -right-2 bg-red-100 text-red-600 text-[10px] px-1 rounded-full border border-red-200">Few</span>' : ''}
+                        </button>
+                    `;
+                }).join('');
+
+                // Color Toggles
+                const colorsHtml = siblings.map(sab => {
+                    const isCurrent = sab.sub_code === subCode;
+                    return `
+                        <button onclick="App.openProductModal('${sab.sub_code}')" title="${sab.color_name}"
+                            class="w-8 h-8 rounded-full border-2 ${isCurrent ? 'border-brand' : 'border-transparent'} shadow-sm focus:outline-none"
+                            style="background-color: ${sab.color_hex || '#ccc'}; background-image: url('${!sab.color_hex ? sab.main_image_url : ''}'); background-size: cover;">
+                        </button>
+                    `;
+                }).join('');
+
+                content.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
+                        <div class="bg-gray-100 aspect-square md:aspect-auto h-full max-h-[500px]">
+                            <img src="${product.main_image_url}" class="w-full h-full object-cover">
+                        </div>
+                        <div class="p-6 md:p-8 flex flex-col h-full">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">${product.product_name}</h2>
+                            <div class="flex items-center mb-4 space-x-2">
+                                ${hasDiscount
+                        ? `<p class="text-xl text-accent font-bold">GHS ${product.discount_price}</p><p class="text-sm text-gray-500 line-through">GHS ${product.base_price}</p>`
+                        : `<p class="text-xl text-gray-900 font-bold">GHS ${product.base_price}</p>`
+                    }
+                            </div>
+                            
+                            <div class="mb-4">
+                                <p class="text-sm font-medium text-gray-900 mb-2">Color: <span class="text-gray-500 font-normal">${product.color_name}</span></p>
+                                <div class="flex space-x-2">${colorsHtml}</div>
+                            </div>
+                            
+                            <div class="mb-8">
+                                <div class="flex justify-between items-center mb-2">
+                                     <p class="text-sm font-medium text-gray-900">Size</p>
+                                     <a href="#" class="text-xs text-brand underline">Size Guide</a>
+                                </div>
+                                <div class="flex gap-2 flex-wrap" id="size-selector">
+                                    ${sizeHtml}
+                                </div>
+                                <p id="stock-feedback" class="text-sm mt-2 min-h-[20px] text-red-500 font-medium"></p>
+                            </div>
+
+                            <div class="mt-auto">
+                                <button id="add-to-cart-btn" disabled onclick="App.addToCart()" class="w-full bg-black text-white py-4 rounded-lg font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors">
+                                    Select Size
+                                </button>
+                                <p class="text-xs text-gray-500 text-center mt-3">Free shipping on orders over GHS 500</p>
+                            </div>
+                            
+                            <!-- Description -->
+                            <div class="mt-6 border-t pt-4">
+                                <p class="text-sm text-gray-600 leading-relaxed">${product.description || 'No description available.'}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                modal.classList.remove('hidden');
+                lucide.createIcons();
+            },
+
+            closeModal() {
+                document.getElementById('product-modal').classList.add('hidden');
+                STATE.currentProduct = null;
+                STATE.selectedSize = null;
+            },
+
+            toggleCart() {
+                const drawer = document.getElementById('cart-drawer');
+                const panel = document.getElementById('cart-panel');
+
+                if (drawer.classList.contains('hidden')) {
+                    drawer.classList.remove('hidden');
+                    // Add animation class here if desired
+                    this.renderCartItems();
+                } else {
+                    drawer.classList.add('hidden');
+                }
+            },
+
+
+            // --- LOGIC ---
+
+            selectSize(size, stock) {
+                if (stock <= 0) return;
+
+                STATE.selectedSize = { size, stock };
+
+                // Visual Update
+                document.querySelectorAll('#size-selector button').forEach(btn => {
+                    btn.classList.remove('ring-2', 'ring-brand', 'ring-offset-1', 'border-brand');
+                    if (btn.id === `size-btn-${size}`) btn.classList.add('ring-2', 'ring-brand', 'ring-offset-1', 'border-brand');
+                });
+
+                const btn = document.getElementById('add-to-cart-btn');
+                btn.disabled = false;
+                btn.textContent = `Add to Cart - ${size}`;
+
+                const feedback = document.getElementById('stock-feedback');
+                if (stock < 5) {
+                    feedback.textContent = `Hurry! Only ${stock} left.`;
+                } else {
+                    feedback.textContent = "";
+                }
+            },
+
+            addToCart() {
+                if (!STATE.currentProduct || !STATE.selectedSize) return;
+
+                const p = STATE.currentProduct;
+                const sizeData = STATE.selectedSize;
+
+                // Construct SKU
+                // Expecting sku_id to be stored in inventory list. We need to match.
+                // Or simplified: SKU = sub_code + "-" + size
+                const invItem = Object.values(STATE.inventory).find(i => i.sub_code === p.sub_code && i.size === sizeData.size);
+
+                const cartItem = {
+                    sku_id: invItem ? invItem.sku_id : `${p.sub_code}-${sizeData.size}`,
+                    product_name: p.product_name,
+                    sub_code: p.sub_code,
+                    color_name: p.color_name,
+                    size: sizeData.size,
+                    price: (p.discount_active === true || p.discount_active === "TRUE") ? p.discount_price : p.base_price,
+                    image: p.main_image_url,
+                    qty: 1,
+                    max_stock: sizeData.stock
+                };
+
+                // Check duplicates
+                const existing = STATE.cart.find(c => c.sku_id === cartItem.sku_id);
+                if (existing) {
+                    if (existing.qty < existing.max_stock) {
+                        existing.qty++;
+                        alert("Quantity updated!");
+                    } else {
+                        alert("Cannot add more. Max stock reached.");
+                        return;
+                    }
+                } else {
+                    STATE.cart.push(cartItem);
+                    // Animation or Toast could go here
+                }
+
+                this.saveCart();
+                this.updateCartUI();
+                this.closeModal();
+                this.toggleCart();
+            },
+
+            removeFromCart(sku) {
+                STATE.cart = STATE.cart.filter(c => c.sku_id !== sku);
+                this.saveCart();
+                this.renderCartItems();
+                this.updateCartUI();
+            },
+
+            updateQty(sku, change) {
+                const item = STATE.cart.find(c => c.sku_id === sku);
+                if (!item) return;
+
+                const newQty = item.qty + change;
+                if (newQty > item.max_stock) {
+                    alert("No more stock available!");
+                    return;
+                }
+                if (newQty < 1) {
+                    if (confirm("Remove item?")) this.removeFromCart(sku);
+                    return;
+                }
+
+                item.qty = newQty;
+                this.saveCart();
+                this.renderCartItems();
+                this.updateCartUI();
+            },
+
+            saveCart() {
+                localStorage.setItem('faym_cart', JSON.stringify(STATE.cart));
+            },
+
+            updateCartUI() {
+                const badge = document.getElementById('cart-badge');
+                const count = STATE.cart.reduce((s, i) => s + i.qty, 0);
+                badge.textContent = count;
+                badge.classList.toggle('opacity-0', count === 0);
+            },
+
+            renderCartItems() {
+                const list = document.getElementById('cart-items');
+                const totalEl = document.getElementById('cart-total');
+
+                if (STATE.cart.length === 0) {
+                    list.innerHTML = '<div class="text-center py-10 text-gray-500">Your cart is empty.</div>';
+                    totalEl.textContent = 'GHS 0.00';
+                    return;
+                }
+
+                const subtotal = STATE.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                totalEl.textContent = `GHS ${subtotal.toFixed(2)}`;
+
+                list.innerHTML = STATE.cart.map(item => `
+                    <li class="flex py-6">
+                        <div class="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+                            <img src="${item.image}" class="h-full w-full object-cover object-center">
+                        </div>
+                        <div class="ml-4 flex flex-1 flex-col">
+                            <div>
+                                <div class="flex justify-between text-base font-medium text-gray-900">
+                                    <h3><a href="#">${item.product_name}</a></h3>
+                                    <p class="ml-4">GHS ${(item.price * item.qty).toFixed(2)}</p>
+                                </div>
+                                <p class="mt-1 text-sm text-gray-500">${item.color_name} | ${item.size}</p>
+                            </div>
+                            <div class="flex flex-1 items-end justify-between text-sm">
+                                <div class="flex items-center border rounded-md">
+                                    <button onclick="App.updateQty('${item.sku_id}', -1)" class="px-3 py-1 hover:bg-gray-100">-</button>
+                                    <span class="px-2 font-medium">${item.qty}</span>
+                                    <button onclick="App.updateQty('${item.sku_id}', 1)" class="px-3 py-1 hover:bg-gray-100">+</button>
+                                </div>
+                                <button type="button" onclick="App.removeFromCart('${item.sku_id}')" class="font-medium text-accent hover:text-red-700">Remove</button>
+                            </div>
+                        </div>
+                    </li>
+                `).join('');
+            },
+
+            goToCheckout() {
+                this.toggleCart();
+                this.renderCheckoutPage();
+                // If updateOrderTotal was generic, call it to set initial delivery
+                this.updateOrderTotal();
+            },
+
+            checkIfDesignSoldOut(subCode) {
+                // Logic to verify if ALL sizes for a design are 0
+                return false;
+            },
+
+            // --- CHECKOUT & DELIVERY LOGIC ---
+
+            getGeoLocation() {
+                if (!navigator.geolocation) {
+                    alert("Geolocation is not supported by your browser.");
+                    return;
+                }
+                const btn = document.querySelector('button[onclick="App.getGeoLocation()"]');
+                btn.textContent = "Locating...";
+
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const combined = `GPS: ${pos.coords.latitude}, ${pos.coords.longitude}`;
+                        document.getElementById('loc-text').value = combined;
+                        btn.textContent = "Location Found!";
+                    },
+                    (err) => {
+                        alert("Unable to retrieve location. Please type it manually.");
+                        btn.textContent = "Use GPS";
+                    }
+                );
+            },
+
+            updateOrderTotal() {
+                const select = document.getElementById('delivery-select');
+                if (!select) return;
+
+                const deliveryCost = parseFloat(select.value);
+                const subtotal = STATE.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                const total = subtotal + deliveryCost;
+
+                document.getElementById('checkout-delivery').textContent = `GHS ${deliveryCost.toFixed(2)}`;
+                document.getElementById('checkout-total').textContent = `GHS ${total.toFixed(2)}`;
+            },
+
+            async handleOrderSubmit(e) {
+                e.preventDefault();
+                const form = e.target;
+                const btn = document.getElementById('place-order-btn');
+
+                // Form Data
+                const formData = new FormData(form);
+                const deliveryZoneIndex = document.getElementById('delivery-select').selectedIndex;
+                const deliveryZoneName = document.getElementById('delivery-select').options[deliveryZoneIndex].text;
+
+                // State Check before submit
+                if (STATE.cart.length === 0) return;
+
+                const payload = {
+                    action: 'processOrder',
+                    payload: {
+                        customerName: formData.get('name'),
+                        phone: formData.get('phone'),
+                        location: `${deliveryZoneName} | ${formData.get('location_text')}`,
+                        deliveryMethod: deliveryZoneName.includes('Pickup') ? 'Pickup' : 'Delivery',
+                        paymentMethod: formData.get('payment_method'),
+                        items: STATE.cart.map(i => ({
+                            sku_id: i.sku_id,
+                            item_name: i.product_name + ' ' + i.color_name,
+                            size: i.size,
+                            price: i.price,
+                            qty: i.qty
+                        })),
+                        grandTotal: document.getElementById('checkout-total').textContent,
+                        storeName: "FAYM"
+                    }
+                };
+
+                // UI Loading
+                btn.disabled = true;
+                btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline shadow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Processing...`;
+
+                try {
+                    // Using 'no-cors' means we can't read response in standard fetch if CORS is not set up on GAS side properly.
+                    // IMPORTANT: GAS Web App must return Text/JSON with correct MimeType.
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        // Clear Cart
+                        STATE.cart = [];
+                        this.saveCart();
+                        this.updateCartUI();
+
+                        // Show Success Page
+                        this.renderSuccessPage(result, {
+                            total: payload.payload.grandTotal,
+                            method: payload.payload.paymentMethod
+                        });
+                    } else {
+                        alert("Order Failed: " + result.message);
+                        btn.disabled = false;
+                        btn.textContent = "Place Order";
+                    }
+
+                } catch (err) {
+                    console.error(err);
+                    alert("Network Error. Please try again.");
+                    btn.disabled = false;
+                    btn.textContent = "Place Order";
+                }
+            },
+
+            async handlePaymentSubmit(e, orderId) {
+                e.preventDefault();
+                const btn = document.getElementById('payment-btn');
+                const transId = e.target.transaction_id.value;
+
+                if (!transId) return;
+
+                btn.textContent = "Verifying...";
+                btn.disabled = true;
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'submitPaymentDetails',
+                            payload: { orderId: orderId, transactionId: transId }
+                        })
+                    });
+                    const result = await response.json();
+
+                    if (result.success) {
+                        btn.parentElement.innerHTML = `
+                            <div class="bg-green-100 text-green-800 p-4 rounded text-center font-bold">
+                                Payment Confirmed! We will process your order shortly.
+                            </div>
+                        `;
+                    } else {
+                        alert(result.message);
+                        btn.disabled = false;
+                        btn.textContent = "Submit Payment Confirmation";
+                    }
+                } catch (err) {
+                    alert("Error submitting payment details.");
+                    btn.disabled = false;
+                }
+            }
+        };
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            App.init();
+        });
+
+    </script>
+</body>
+
+</html>
