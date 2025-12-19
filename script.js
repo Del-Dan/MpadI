@@ -208,13 +208,23 @@ function createProductCard(p) {
 // --- SEARCH ---
 function toggleSearch() {
     const ol = document.getElementById('searchOverlay');
+    const backdrop = document.getElementById('searchBackdrop');
+    const drawer = document.getElementById('searchDrawer');
     const input = document.getElementById('searchInput');
+
     if (ol.classList.contains('hidden')) {
+        // Open
         ol.classList.remove('hidden');
-        setTimeout(() => ol.classList.remove('opacity-0', 'translate-y-[-10px]'), 10);
+        // Force Reflow
+        void ol.offsetWidth;
+
+        backdrop.classList.remove('opacity-0');
+        drawer.classList.remove('-translate-y-full');
         input.focus();
     } else {
-        ol.classList.add('opacity-0', 'translate-y-[-10px]');
+        // Close
+        backdrop.classList.add('opacity-0');
+        drawer.classList.add('-translate-y-full');
         setTimeout(() => ol.classList.add('hidden'), 300);
     }
 }
