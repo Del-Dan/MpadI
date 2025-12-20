@@ -16,9 +16,9 @@ const formatImage = (url) => {
     if (!url) return 'https://via.placeholder.com/400x500?text=No+Image';
     const driveRegex = /\/d\/([a-zA-Z0-9_-]+)|\?id=([a-zA-Z0-9_-]+)/;
     const match = url.match(driveRegex);
-    if (match && url.includes('drive.google.com')) {
+    if (match && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
         const id = match[1] || match[2];
-        if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
+        if (id) return `https://lh3.googleusercontent.com/d/${id}`;
     }
     return url;
 };
@@ -42,18 +42,45 @@ async function initApp() {
     } catch (e) {
         console.warn("API Init failed, using mock data for testing", e);
         // Mock Data for Testing
-        AppState.products = [];
-        AppState.inventory = [];
+        AppState.products = [
+            {
+                parent_code: "P001",
+                sub_code: "P001-BLK",
+                product_name: "Essential Tee",
+                category: "T-Shirt",
+                base_price: 150,
+                discount_price: 120,
+                discount_active: true,
+                main_image_url: "https://drive.google.com/file/d/1yZkwb3_jfqXfq_t1f_9ggA-w2y2_x3_3/view?usp=sharing", // Example Drive Link
+                color_name: "Black",
+                color_hex: "#000000",
+                variants: []
+            },
+            {
+                parent_code: "P002",
+                sub_code: "P002-WHT",
+                product_name: "Classic Hoodie",
+                category: "Hoodie",
+                base_price: 300,
+                discount_price: 0,
+                discount_active: false,
+                main_image_url: "https://drive.google.com/open?id=1yZkwb3_jfqXfq_t1f_9ggA-w2y2_x3_3", // Alternate Drive Link Format
+                color_name: "White",
+                color_hex: "#ffffff",
+                variants: []
+            }
+        ];
+        AppState.inventory = [
+            { sub_code: "P001-BLK", size: "M", stock_qty: 10, sku_id: "SKU1" },
+            { sub_code: "P002-WHT", size: "L", stock_qty: 5, sku_id: "SKU2" }
+        ];
         AppState.config = {
             hero_slide_1_url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop',
             hero_slide_1_type: 'image',
             hero_slide_1_text: 'New Collection',
-            hero_slide_2_url: 'https://cdn.pixabay.com/vimeo/328940142/fashion-23602.mp4?width=1280&hash=12c6a0149021575877c858593457193766774211', // Sample Video
+            hero_slide_2_url: 'https://cdn.pixabay.com/vimeo/328940142/fashion-23602.mp4?width=1280&hash=12c6a0149021575877c858593457193766774211',
             hero_slide_2_type: 'video',
-            hero_slide_2_text: 'Summer Vibes',
-            hero_slide_3_url: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?q=80&w=2070&auto=format&fit=crop',
-            hero_slide_3_type: 'image',
-            hero_slide_3_text: 'Exclusive Styles'
+            hero_slide_2_text: 'Summer Vibes'
         };
         finalizeInit();
     }
