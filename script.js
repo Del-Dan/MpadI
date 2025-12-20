@@ -81,12 +81,18 @@ async function initApp() {
             { sub_code: "P002-WHT", size: "L", stock_qty: 5, sku_id: "SKU2" }
         ];
         AppState.config = {
-            hero_slide_1_url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop',
+            hero_slide_1_url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop',
             hero_slide_1_type: 'image',
-            hero_slide_1_text: 'New Collection',
-            hero_slide_2_url: 'https://cdn.pixabay.com/vimeo/328940142/fashion-23602.mp4?width=1280&hash=12c6a0149021575877c858593457193766774211',
+            hero_slide_1_text: 'Elevate Your Style',
+            hero_slide_1_subtext: 'Premium collection for the modern individual.',
+            hero_slide_2_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
             hero_slide_2_type: 'video',
-            hero_slide_2_text: 'Summer Vibes'
+            hero_slide_2_text: 'Experience Freedom',
+            hero_slide_2_subtext: '',
+            hero_slide_3_url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop',
+            hero_slide_3_type: 'image',
+            hero_slide_3_text: 'Latest Drops',
+            hero_slide_3_subtext: 'Shop the new season favorites.'
         };
         finalizeInit();
     }
@@ -596,6 +602,7 @@ let heroInterval;
 function initHero() {
     const con = document.getElementById('sliderContainer');
     const titleEl = document.getElementById('heroTitle');
+    const subTitleEl = document.getElementById('heroSubtext');
     const ctaBtn = document.getElementById('heroBtn');
 
     // 1. Gather Slides
@@ -606,7 +613,8 @@ function initHero() {
             slides.push({
                 url: formatImage(url),
                 type: AppState.config[`hero_slide_${i}_type`] || 'image',
-                text: AppState.config[`hero_slide_${i}_text`] || ''
+                text: AppState.config[`hero_slide_${i}_text`] || '',
+                subtext: AppState.config[`hero_slide_${i}_subtext`] || ''
             });
         }
     }
@@ -651,11 +659,25 @@ function initHero() {
     // Helper to update text
     const updateText = (idx) => {
         const txt = slides[idx].text;
+        const sub = slides[idx].subtext;
+
+        // Fade Out
         titleEl.style.opacity = '0';
+        if (subTitleEl) subTitleEl.style.opacity = '0';
+
         setTimeout(() => {
+            // Update Content
             titleEl.innerText = txt;
+            if (subTitleEl) {
+                subTitleEl.innerText = sub;
+                if (!sub) subTitleEl.style.display = 'none';
+                else subTitleEl.style.display = 'block';
+            }
+
+            // Fade In
             titleEl.style.opacity = '1';
-        }, 300);
+            if (subTitleEl && sub) subTitleEl.style.opacity = '1';
+        }, 500);
 
         // Update Dots
         const dots = document.getElementById('heroDots').children;
@@ -762,27 +784,152 @@ function initHero() {
     startCycle();
 
     // 5. Touch / Swipe Support
+    // 5. Touch / Swipe Support (Active Tracking)
     let touchStartX = 0;
-    let touchEndX = 0;
+    let touchStartY = 0;
+    let currentDragX = 0;
+    let isDragging = false;
     const heroSec = document.getElementById('heroSection');
 
     heroSec.ontouchstart = (e) => {
-        touchStartX = e.changedTouches[0].screenX;
+        if (isAnimating) return;
+        touchStartX = e.changedTouches[0].clientX;
+        touchStartY = e.changedTouches[0].clientY;
+        isDragging = true;
         clearInterval(heroInterval);
+
+        // Prepare neighbors
+        const slideEls = Array.from(con.children).filter(el => el.hasAttribute('data-index'));
+        const prevIdx = (curIdx - 1 + slides.length) % slides.length;
+        const nextIdx = (curIdx + 1) % slides.length;
+        const currEl = slideEls[curIdx];
+        const prevEl = slideEls[prevIdx];
+        const nextEl = slideEls[nextIdx];
+
+        // Disable transitions for instant tracking
+        [currEl, prevEl, nextEl].forEach(el => el.style.transition = 'none');
+
+        // Position neighbors invisible but ready
+        prevEl.style.transform = 'translateX(-100%)';
+        prevEl.style.opacity = '1';
+        prevEl.style.zIndex = '5';
+
+        nextEl.style.transform = 'translateX(100%)';
+        nextEl.style.opacity = '1';
+        nextEl.style.zIndex = '5';
+
+        // Current stays on top
+        currEl.style.zIndex = '10';
+    };
+
+    heroSec.ontouchmove = (e) => {
+        if (!isDragging) return;
+        const cx = e.changedTouches[0].clientX;
+        const cy = e.changedTouches[0].clientY;
+        const diffX = cx - touchStartX;
+        const diffY = cy - touchStartY;
+
+        // Lock scroll if mostly horizontal
+        if (Math.abs(diffX) > Math.abs(diffY)) e.preventDefault();
+
+        currentDragX = cx;
+
+        const slideEls = Array.from(con.children).filter(el => el.hasAttribute('data-index'));
+        const prevIdx = (curIdx - 1 + slides.length) % slides.length;
+        const nextIdx = (curIdx + 1) % slides.length;
+
+        const currEl = slideEls[curIdx];
+        const prevEl = slideEls[prevIdx];
+        const nextEl = slideEls[nextIdx];
+
+        // Move Current
+        currEl.style.transform = `translateX(${diffX}px)`;
+
+        // Move Neighbors
+        if (diffX < 0) {
+            // Dragging Left -> showing Next
+            nextEl.style.transform = `translateX(calc(100% + ${diffX}px))`;
+        } else {
+            // Dragging Right -> showing Prev
+            prevEl.style.transform = `translateX(calc(-100% + ${diffX}px))`;
+        }
     };
 
     heroSec.ontouchend = (e) => {
-        touchEndX = e.changedTouches[0].screenX;
-        handleSwipe();
+        if (!isDragging) return;
+        isDragging = false;
+        const diff = currentDragX - touchStartX;
+        const threshold = 50;
+
+        // Restore Transitions
+        const slideEls = Array.from(con.children).filter(el => el.hasAttribute('data-index'));
+        const prevIdx = (curIdx - 1 + slides.length) % slides.length;
+        const nextIdx = (curIdx + 1) % slides.length;
+        const currEl = slideEls[curIdx];
+        const prevEl = slideEls[prevIdx];
+        const nextEl = slideEls[nextIdx];
+
+        const trans = 'transform 0.5s ease-in-out';
+        [currEl, prevEl, nextEl].forEach(el => el.style.transition = trans);
+
+        if (Math.abs(diff) > threshold) {
+            // Complete the Move
+            isAnimating = true;
+            if (diff < 0) {
+                // Next
+                requestAnimationFrame(() => {
+                    currEl.style.transform = 'translateX(-100%)';
+                    nextEl.style.transform = 'translateX(0)';
+                });
+                finishSwipe(nextIdx);
+            } else {
+                // Prev
+                requestAnimationFrame(() => {
+                    currEl.style.transform = 'translateX(100%)';
+                    prevEl.style.transform = 'translateX(0)';
+                });
+                finishSwipe(prevIdx);
+            }
+        } else {
+            // Revert / Snap Back
+            requestAnimationFrame(() => {
+                currEl.style.transform = 'translateX(0)';
+                prevEl.style.transform = 'translateX(-100%)';
+                nextEl.style.transform = 'translateX(100%)';
+            });
+            // Cleanup Neighbor Opacity after snap
+            setTimeout(() => {
+                prevEl.style.opacity = '0';
+                nextEl.style.opacity = '0';
+            }, 500);
+        }
         startCycle();
     };
 
-    const handleSwipe = () => {
-        const diff = touchEndX - touchStartX;
-        if (Math.abs(diff) > 50) {
-            if (diff < 0) nextSlide(); // Swipe Left -> Next
-            else prevSlide(); // Swipe Right -> Prev
-        }
+    const finishSwipe = (targetIdx) => {
+        setTimeout(() => {
+            const slideEls = Array.from(con.children).filter(el => el.hasAttribute('data-index'));
+            slideEls.forEach((el, i) => {
+                if (i !== targetIdx) {
+                    el.style.zIndex = '0';
+                    el.style.opacity = '0'; // Hide others
+                } else {
+                    el.style.zIndex = '10'; // Active
+                    el.style.opacity = '1';
+                }
+            });
+            // Pause/Reset Videos of OLD slide
+            const oldVid = slideEls[curIdx].querySelector('video');
+            if (oldVid) { oldVid.pause(); oldVid.currentTime = 0; }
+
+            // Play Video of NEW slide
+            const newVid = slideEls[targetIdx].querySelector('video');
+            if (newVid) newVid.play().catch(() => { });
+
+            isAnimating = false;
+            curIdx = targetIdx;
+            updateText(curIdx);
+        }, 500);
     };
 
     // Pause on Hover

@@ -109,10 +109,13 @@
     <div id="heroSection" class="relative h-[85vh] w-full overflow-hidden bg-gray-100">
         <div id="sliderContainer" class="absolute inset-0 w-full h-full"></div>
         <div
-            class="absolute inset-x-0 bottom-0 pb-20 pt-40 bg-gradient-to-t from-black/60 to-transparent flex flex-col items-center justify-center text-center px-4 z-10 pointer-events-none">
+            class="absolute inset-x-0 bottom-0 pb-20 pt-40 bg-gradient-to-t from-black/60 to-transparent flex flex-col items-center justify-center text-center px-4 z-40 pointer-events-none">
             <h2 id="heroTitle"
-                class="text-4xl md:text-6xl font-serif text-white mb-4 drop-shadow-xl opacity-0 transition-opacity duration-700">
+                class="text-4xl md:text-6xl font-serif text-white mb-2 drop-shadow-xl opacity-0 transition-opacity duration-500">
             </h2>
+            <p id="heroSubtext"
+                class="text-lg md:text-xl text-white/90 mb-6 drop-shadow-md font-light tracking-wide opacity-0 transition-opacity duration-500 delay-100 max-w-xl">
+            </p>
             <button onclick="scrollToGrid()"
                 class="pointer-events-auto bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-brand-accent hover:text-white transition-all transform hover:scale-105 shadow-lg opacity-0 transition-opacity duration-700 delay-200"
                 id="heroBtn">Explore Collection</button>
