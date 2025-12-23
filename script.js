@@ -15,13 +15,11 @@ const AppState = {
 const formatImage = (url) => {
     if (!url) return 'https://via.placeholder.com/400x500?text=No+Image';
 
-    // --- 1. CLOUDINARY HANDLING (New Speed Boost) ---
+    // --- 1. CLOUDINARY HANDLING (Speed Boost) ---
     if (url.includes('cloudinary.com')) {
-        // If the link is already optimized, just return it.
         if (url.includes('f_auto') || url.includes('q_auto')) {
             return url;
         }
-        // Otherwise, inject the optimization parameters after "/upload/"
         return url.replace('/upload/', '/upload/f_auto,q_auto/');
     }
 
@@ -30,12 +28,11 @@ const formatImage = (url) => {
         const driveRegex = /(?:\/d\/|id=)([-\w]{25,})/;
         const match = url.match(driveRegex);
         if (match && match[1]) {
-            // "sz=s1000" requests a high-res version up to 1000px
+            // "sz=s1000" requests high-res
             return `https://lh3.googleusercontent.com/d/$${match[1]}=s1000`;
         }
     }
 
-    // --- 3. GENERIC / OTHER LINKS ---
     return url;
 };
 
@@ -46,31 +43,35 @@ async function initApp() {
     checkSession();
     try {
         const res = await fetch(`${API_URL}?action=getStoreData`).then(r => r.json());
+        
+        // Data Transformation
         AppState.products = res.products.map(p => ({
             ...p,
             base_price: Number(p.base_price),
             discount_price: Number(p.discount_price),
             is_new: String(p.is_new).toUpperCase() === 'TRUE'
         }));
+        
         AppState.inventory = res.inventory;
         AppState.config = res.config;
-        AppState.locations = res.locations; // Capture locations from API
+        AppState.locations = res.locations;
+        
         finalizeInit();
+        
     } catch (e) {
-    console.error("Critical Init Error", e);
-    // Show a user-friendly error screen instead of fake products
-    document.getElementById('productGrid').innerHTML = `
-        <div class="col-span-full py-20 text-center">
-            <i class="bi bi-wifi-off text-6xl text-gray-300 mb-4 block"></i>
-            <h2 class="text-xl font-bold text-gray-800">Connection Failed</h2>
-            <p class="text-gray-500 mb-6">We couldn't load the store. Please check your internet.</p>
-            <button onclick="window.location.reload()" class="bg-black text-white px-6 py-2 rounded-full font-bold hover:bg-gray-800 transition">Retry</button>
-        </div>
-    `;
-    // Hide sections that look broken without data
-    document.getElementById('heroSection').style.display = 'none';
-    document.getElementById('latestDropsSection').style.display = 'none';
-}
+        console.error("Critical Init Error", e);
+        // User-friendly error screen (No Mock Data for Production)
+        document.getElementById('productGrid').innerHTML = `
+            <div class="col-span-full py-20 text-center">
+                <i class="bi bi-wifi-off text-6xl text-gray-300 mb-4 block"></i>
+                <h2 class="text-xl font-bold text-gray-800">Connection Failed</h2>
+                <p class="text-gray-500 mb-6">We couldn't load the store. Please check your internet.</p>
+                <button onclick="window.location.reload()" class="bg-black text-white px-6 py-2 rounded-full font-bold hover:bg-gray-800 transition">Retry</button>
+            </div>
+        `;
+        document.getElementById('heroSection').style.display = 'none';
+        document.getElementById('latestDropsSection').style.display = 'none';
+    }
 }
 
 function finalizeInit() {
@@ -91,7 +92,6 @@ function checkSession() {
 }
 function handleAuthClick() { AppState.user ? openProfile() : openAuth(); }
 
-// Profile Modal Logic
 function openProfile() {
     if (!AppState.user) return;
     document.getElementById('profName').value = AppState.user.fullName;
@@ -99,7 +99,7 @@ function openProfile() {
     document.getElementById('profPhone').value = AppState.user.phone || "";
     document.getElementById('profileModal').classList.remove('hidden');
     document.getElementById('profileModal').classList.add('flex');
-    switchProfileTab('details'); // Default tab
+    switchProfileTab('details');
 }
 
 function switchProfileTab(tab) {
@@ -131,7 +131,7 @@ async function loadOrderHistory() {
     try {
         const res = await fetch(API_URL, {
             method: 'POST',
-            body: JSON.stringify({ action: 'getOrderHistory', payload: { email: AppState.user.email } })
+            body: JSON.stringify({ action: 'getOrderHistory', payload: { phone: AppState.user.phone } }) 
         }).then(r => r.json());
 
         if (res.success && res.orders.length > 0) {
@@ -156,11 +156,7 @@ async function loadOrderHistory() {
                 </div>
             `).join('');
         } else {
-            div.innerHTML = `
-                <div class="text-center py-8 text-gray-500">
-                     <i class="bi bi-bag-x text-4xl mb-2 block"></i>
-                     <p>No orders found.</p>
-                </div>`;
+            div.innerHTML = `<div class="text-center py-8 text-gray-500"><i class="bi bi-bag-x text-4xl mb-2 block"></i><p>No orders found.</p></div>`;
         }
     } catch (e) {
         div.innerHTML = '<div class="text-red-500 text-center text-sm">Failed to load orders.</div>';
@@ -184,12 +180,16 @@ function closeProfile() {
     document.getElementById('profileModal').classList.remove('flex');
 }
 
+function logoutUser() {
+    localStorage.removeItem('faym_user');
+    location.reload();
+}
+
 async function handleUpdateProfile(e) {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
     const txt = btn.innerText;
 
-    // Password Validation
     const currPass = document.getElementById('profCurrPass').value;
     const newPass = document.getElementById('profNewPass').value;
     const repPass = document.getElementById('profRepPass').value;
@@ -222,7 +222,6 @@ async function handleUpdateProfile(e) {
             AppState.user = res.user;
             localStorage.setItem('faym_user', JSON.stringify(res.user));
             alert("Profile Updated Successfully!");
-            // Clear passwords
             document.getElementById('profCurrPass').value = '';
             document.getElementById('profNewPass').value = '';
             document.getElementById('profRepPass').value = '';
@@ -263,7 +262,6 @@ async function handleLogin(e) {
     const f = e.target;
     let valid = true;
 
-    // Inline Validation
     clearError(f.email);
     clearError(f.password);
 
@@ -287,7 +285,6 @@ async function handleLogin(e) {
             localStorage.setItem('faym_user', JSON.stringify(res.user));
             location.reload();
         } else {
-            // General Error (or map to specific field if backend supports)
             showError(f.password, res.message || "Invalid credentials");
         }
     } catch (e) { showError(f.password, "Connection Error"); }
@@ -299,13 +296,11 @@ async function handleRegister(e) {
     const f = e.target;
     let valid = true;
 
-    // Clear previous errors
     clearError(f.fullName);
     clearError(f.email);
     clearError(f.phone);
     clearError(f.password);
 
-    // Inline Validation
     if (!f.fullName.value.trim()) { showError(f.fullName, 'Name is required'); valid = false; }
     if (!f.email.value.trim() || !f.email.value.includes('@')) { showError(f.email, 'Valid email required'); valid = false; }
     if (!f.phone.value.trim() || f.phone.value.length < 10) { showError(f.phone, 'Valid phone required'); valid = false; }
@@ -342,7 +337,6 @@ async function handleRegister(e) {
     btn.innerText = txt; btn.disabled = false;
 }
 
-// --- FORGOT PASSWORD ---
 function openForgotPass() { switchAuth('forgot'); }
 
 async function handleForgotPass(e) {
@@ -411,7 +405,6 @@ function createProductCard(p) {
 
     // Color dots
     let dots = p.variants.map(v => {
-        // Check stock for this variant (all sizes)
         const hasStock = AppState.inventory.some(i => i.sub_code === v.sub_code && i.stock_qty > 0);
         return `<div class="w-3 h-3 rounded-full border border-gray-200 ${hasStock ? '' : 'opacity-30 diagonal-strike'}" style="background-color:${v.color_hex};" title="${v.color_name}${hasStock ? '' : ' (OOS)'}"></div>`;
     }).join('');
@@ -436,7 +429,7 @@ function createProductCard(p) {
     return div;
 }
 
-// --- SEARCH ---
+// --- SEARCH & SORTING ---
 function toggleSearch() {
     const ol = document.getElementById('searchOverlay');
     const backdrop = document.getElementById('searchBackdrop');
@@ -444,16 +437,12 @@ function toggleSearch() {
     const input = document.getElementById('searchInput');
 
     if (ol.classList.contains('hidden')) {
-        // Open
         ol.classList.remove('hidden');
-        // Force Reflow
         void ol.offsetWidth;
-
         backdrop.classList.remove('opacity-0');
         drawer.classList.remove('-translate-y-full');
         input.focus();
     } else {
-        // Close
         backdrop.classList.add('opacity-0');
         drawer.classList.add('-translate-y-full');
         setTimeout(() => ol.classList.add('hidden'), 300);
@@ -478,9 +467,9 @@ function runSearchOrFilter() {
     const cat = document.getElementById('filterCategory').value;
     const price = document.getElementById('filterPrice').value;
     const stockPos = document.getElementById('filterStock').checked;
+    const sortMode = document.getElementById('sortOrder')?.value || 'newest';
 
-    const results = AppState.products.filter(p => {
-        // Include safer checks
+    let results = AppState.products.filter(p => {
         const matchSearch = !q || p.product_name.toLowerCase().includes(q) || p.color_name.toLowerCase().includes(q) || (p.category && p.category.toLowerCase().includes(q));
         const matchCat = cat === 'all' || p.category === cat;
 
@@ -497,17 +486,25 @@ function runSearchOrFilter() {
         return matchSearch && matchCat && matchPrice && matchStock;
     });
 
-    // Close Overlay to show results on main grid
+    // --- SORTING LOGIC ---
+    results.sort((a, b) => {
+        const priceA = a.discount_active ? a.discount_price : a.base_price;
+        const priceB = b.discount_active ? b.discount_price : b.base_price;
+
+        if (sortMode === 'priceLow') return priceA - priceB;
+        if (sortMode === 'priceHigh') return priceB - priceA;
+        return 0; // Default (Order from Sheets)
+    });
+
     if (!document.getElementById('searchOverlay').classList.contains('hidden')) {
         toggleSearch();
     }
 
-    // Update Grid Title
     const titleEl = document.querySelector('main h2');
     const subTitleEl = document.querySelector('main span.text-brand-accent');
     const resetBtn = document.getElementById('gridResetBtn');
 
-    if (q || cat !== 'all' || price !== 'all' || stockPos) {
+    if (q || cat !== 'all' || price !== 'all' || stockPos || sortMode !== 'newest') {
         if (subTitleEl) subTitleEl.innerText = "Filtered Results";
         if (titleEl) titleEl.innerHTML = q ? `Search for "<span class='italic'>${q}</span>"` : "Filtered Selection";
         if (resetBtn) resetBtn.classList.remove('hidden');
@@ -525,6 +522,7 @@ function resetFilters() {
     document.getElementById('searchInput').value = '';
     document.getElementById('filterCategory').value = 'all';
     document.getElementById('filterPrice').value = 'all';
+    document.getElementById('sortOrder').value = 'newest';
     document.getElementById('filterStock').checked = false;
     runSearchOrFilter();
 }
@@ -534,48 +532,25 @@ let currentGroup = [], currentVar = null, selSize = null;
 let currentGallery = [], galleryIdx = 0;
 
 async function initGallery(varData) {
-    console.log("Initializing Gallery v2.1");
     const mainImg = formatImage(varData.main_image_url);
     currentGallery = [mainImg];
     galleryIdx = 0;
-
-    // Clear & Show Loading
     renderGalleryUI();
 
     if (varData.gallery_images) {
         const raw = varData.gallery_images;
-        // Check if Folder URL or Comma List
-        if (raw.includes('drive.google.com') && (raw.includes('/folders/') || raw.includes('id='))) {
-            // Fetch
-            try {
-                const res = await fetch(`${API_URL}`, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'getGalleryImages', payload: { url: raw } })
-                }).then(r => r.json());
-
-                if (res.success && res.images.length > 0) {
-                    // Add fetched images to gallery, filtering duplicates
-                    res.images.forEach(img => {
-                        if (formatImage(img) !== mainImg) currentGallery.push(formatImage(img));
-                    });
-                }
-            } catch (e) { console.warn("Gallery Fetch Fail", e); }
-        } else {
-            // Comma List
-            const list = raw.split(',').map(s => formatImage(s.trim())).filter(s => s && s !== mainImg);
-            currentGallery.push(...list);
-        }
+        // Direct Comma-Separated Links (Cloudinary Preferred)
+        const list = raw.split(',').map(s => formatImage(s.trim())).filter(s => s && s !== mainImg);
+        currentGallery.push(...list);
     }
     renderGalleryUI();
 }
 
 function renderGalleryUI() {
-    // 1. Update Main Image
     document.getElementById('modalImg').src = currentGallery[galleryIdx];
-
-    // 2. Nav Buttons
     const prevBtn = document.getElementById('galleryPrevBtn');
     const nextBtn = document.getElementById('galleryNextBtn');
+    
     if (currentGallery.length > 1) {
         prevBtn.classList.remove('hidden');
         nextBtn.classList.remove('hidden');
@@ -584,7 +559,6 @@ function renderGalleryUI() {
         nextBtn.classList.add('hidden');
     }
 
-    // 3. Thumbnails
     const tDiv = document.getElementById('galleryThumbnails');
     tDiv.innerHTML = '';
     if (currentGallery.length > 1) {
@@ -602,7 +576,6 @@ function changeGalleryImage(dir) {
     galleryIdx = (galleryIdx + dir + currentGallery.length) % currentGallery.length;
     renderGalleryUI();
 }
-
 
 function openProductModal(p) {
     currentGroup = AppState.products.filter(x => x.parent_code === p.parent_code);
@@ -637,10 +610,8 @@ function selectVariant(sub) {
     }
     document.getElementById('modalDesc').innerText = currentVar.description || '';
 
-    // Init Gallery
     initGallery(currentVar);
 
-    // Colors
     const cDiv = document.getElementById('modalColors');
     cDiv.innerHTML = '';
     currentGroup.forEach(v => {
@@ -652,7 +623,6 @@ function selectVariant(sub) {
     });
     document.getElementById('selectedColorName').innerText = currentVar.color_name;
 
-    // Likes (Heart)
     const heart = document.getElementById('modalLikeBtn').querySelector('i');
     if (AppState.favorites.includes(sub)) { heart.className = "bi bi-heart-fill"; heart.parentElement.classList.add('text-red-500'); }
     else { heart.className = "bi bi-heart"; heart.parentElement.classList.remove('text-red-500'); }
@@ -670,13 +640,19 @@ function renderSizes() {
         const item = stock.find(i => i.size === sz);
         const qty = item ? item.stock_qty : 0;
         const btn = document.createElement('button');
-        btn.innerText = sz;
         btn.disabled = qty <= 0;
-        // Style logic
+        
         if (qty > 0) {
             btn.className = "py-3 rounded border text-sm font-semibold hover:border-black hover:bg-black hover:text-white transition";
+            
+            // LOW STOCK ALERT
+            if (qty < 5) {
+                btn.innerHTML = `${sz} <span class="block text-[9px] text-red-500 font-normal leading-none mt-0.5">Left: ${qty}</span>`;
+            } else {
+                btn.innerText = sz;
+            }
+
             btn.onclick = () => {
-                // Clear selection
                 Array.from(sDiv.children).forEach(c => { if (!c.disabled) c.className = "py-3 rounded border text-sm font-semibold hover:border-black hover:bg-black hover:text-white transition"; });
                 btn.className = "py-3 rounded border text-sm font-semibold bg-black text-white border-black shadow-md";
 
@@ -687,12 +663,12 @@ function renderSizes() {
                 addBtn.innerText = `Add - ${AppState.currency}${currentVar.discount_active ? currentVar.discount_price : currentVar.base_price}`;
             };
         } else {
-            btn.className = "py-3 rounded border text-sm font-semibold bg-gray-50 text-gray-300 cursor-not-allowed";
+            btn.innerText = sz;
+            btn.className = "py-3 rounded border text-sm font-semibold bg-gray-50 text-gray-300 cursor-not-allowed diagonal-strike opacity-50";
         }
         sDiv.appendChild(btn);
     });
 
-    // Reset Add
     const addBtn = document.getElementById('addToCartBtn');
     addBtn.disabled = true;
     addBtn.innerText = "Select Size";
@@ -721,7 +697,6 @@ function addToCartFromModal() {
     }
     saveCart();
 
-    // Auto-open Cart Drawer
     const drawer = document.getElementById('cartDrawer');
     if (drawer && drawer.classList.contains('translate-x-full')) {
         toggleCart();
@@ -752,7 +727,6 @@ async function toggleLikeFromModal() {
         AppState.favorites.push(sub);
         heart.className = "bi bi-heart-fill"; heart.parentElement.classList.add('text-red-500');
     }
-    // Async update
     await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'toggleLike', payload: { email: AppState.user.email, productSubCode: sub } }) });
 }
 
@@ -788,29 +762,24 @@ function updCart(i, d) {
     if (c.qty + d > 0 && c.qty + d <= c.maxQty) { c.qty += d; saveCart(); }
 }
 function rmCart(i) {
-    // Removed native confirm for better UX
     AppState.cart.splice(i, 1);
     saveCart();
 }
 
 // --- CHECKOUT LOGIC ---
-let deliveryMethod = 'delivery'; // 'delivery' or 'pickup'
+let deliveryMethod = 'delivery';
 let deliveryFee = 0;
-let map, autocomplete;
-let userDistanceKm = 0;
 
 function checkout() {
     if (AppState.cart.length === 0) {
         alert("Your cart is empty.");
         return;
     }
-    // Auto-fill User Data
     if (AppState.user) {
         document.getElementById('chkName').value = AppState.user.fullName || '';
         document.getElementById('chkPhone').value = AppState.user.phone || '';
     }
 
-    // Render Summary Items
     const cDiv = document.getElementById('chkItems');
     cDiv.innerHTML = AppState.cart.map(item => `
         <div class="flex gap-3 text-sm">
@@ -823,53 +792,12 @@ function checkout() {
         </div>
     `).join('');
 
-    // Set Dates (5 - 14 Days)
     const options = { month: 'short', day: 'numeric' };
     const dateStart = new Date(); dateStart.setDate(dateStart.getDate() + 5);
     const dateEnd = new Date(); dateEnd.setDate(dateEnd.getDate() + 14);
     document.getElementById('chkEstDate').innerText = `${dateStart.toLocaleDateString(undefined, options)} - ${dateEnd.toLocaleDateString(undefined, options)}`;
 
-    // Init Dropdowns if needed
     if (deliveryMethod === 'delivery') initZoneDropdowns();
-
-    updateCheckoutTotals();
-
-    document.getElementById('checkoutModal').classList.remove('hidden');
-    document.getElementById('checkoutModal').classList.add('flex');
-}
-
-function checkout_OLD() {
-    if (AppState.cart.length === 0) {
-        alert("Your cart is empty.");
-        return;
-    }
-    // Auto-fill User Data
-    if (AppState.user) {
-        document.getElementById('chkName').value = AppState.user.fullName || '';
-        document.getElementById('chkPhone').value = AppState.user.phone || '';
-    }
-
-    // Render Summary Items
-    const cDiv = document.getElementById('chkItems');
-    cDiv.innerHTML = AppState.cart.map(item => `
-        <div class="flex gap-3 text-sm">
-             <img src="${formatImage(item.image)}" class="w-12 h-16 object-cover rounded border">
-             <div class="flex-1">
-                 <div class="font-bold line-clamp-1">${item.product_name}</div>
-                 <div class="text-xs text-gray-500">${item.size} | ${item.color}</div>
-                 <div class="font-semibold mt-1">x${item.qty} ${AppState.currency}${item.price}</div>
-             </div>
-        </div>
-    `).join('');
-
-    // Set Dates (5 - 14 Days)
-    const options = { month: 'short', day: 'numeric' };
-    const dateStart = new Date(); dateStart.setDate(dateStart.getDate() + 5);
-    const dateEnd = new Date(); dateEnd.setDate(dateEnd.getDate() + 14);
-    document.getElementById('chkEstDate').innerText = `${dateStart.toLocaleDateString(undefined, options)} - ${dateEnd.toLocaleDateString(undefined, options)}`;
-
-    // Init Map if needed
-    if (deliveryMethod === 'delivery' && !map) initMap();
 
     updateCheckoutTotals();
 
@@ -903,44 +831,18 @@ function setDeliveryMethod(method) {
         tabDel.className = "pb-2 text-lg font-bold text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition";
         panePick.classList.remove('hidden');
         paneDel.classList.add('hidden');
-        deliveryFee = 0; // Reset for pickup
+        deliveryFee = 0; 
         updateCheckoutTotals();
     }
     updateCheckoutTotals();
 }
 
-function setDeliveryMethod_OLD(method) {
-    deliveryMethod = method;
-
-    const tabDel = document.getElementById('tabDelivery');
-    const tabPick = document.getElementById('tabPickup');
-    const paneDel = document.getElementById('paneDelivery');
-    const panePick = document.getElementById('panePickup');
-
-    if (method === 'delivery') {
-        tabDel.className = "pb-2 text-lg font-bold border-b-2 border-black transition";
-        tabDel.classList.remove('text-gray-400');
-        tabPick.className = "pb-2 text-lg font-bold text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition";
-        paneDel.classList.remove('hidden');
-        panePick.classList.add('hidden');
-        if (!map) initMap();
-    } else {
-        tabPick.className = "pb-2 text-lg font-bold border-b-2 border-black transition";
-        tabPick.classList.remove('text-gray-400');
-        tabDel.className = "pb-2 text-lg font-bold text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition";
-        panePick.classList.remove('hidden');
-        paneDel.classList.add('hidden');
-    }
-    updateCheckoutTotals();
-}
-
-// --- ZONE LOGIC ---
 // --- ZONE LOGIC ---
 function initZoneDropdowns() {
     const locs = AppState.locations || [];
     if (locs.length === 0) { console.warn("No Location Data"); return; }
     const regSel = document.getElementById('chkRegion');
-    // Use l.Region
+    
     const uniqueRegions = [...new Set(locs.map(l => l.Region))].filter(r => r && r !== "Region");
     regSel.innerHTML = '<option value="">Select Region</option>';
     uniqueRegions.forEach(r => {
@@ -959,7 +861,6 @@ function onRegionChange() {
     document.getElementById('chkArea').innerHTML = '<option value="">Select Area first</option>';
     if (!reg) return;
     const locs = AppState.locations.filter(l => l.Region === reg);
-    // Use l.Town_City
     const uniqueTowns = [...new Set(locs.map(l => l.Town_City))];
     uniqueTowns.forEach(t => {
         const opt = document.createElement('option');
@@ -974,12 +875,11 @@ function onTownChange() {
     const areaSel = document.getElementById('chkArea');
     areaSel.innerHTML = '<option value="">Select Area/Locality</option>';
     if (!town) return;
-    // Use l.Town_City
     const locs = AppState.locations.filter(l => l.Region === reg && l.Town_City === town);
     locs.forEach(l => {
         const opt = document.createElement('option');
-        const price = l.Delivery_Price; // Use l.Delivery_Price
-        const areaName = l.Area_Locality; // Use l.Area_Locality
+        const price = l.Delivery_Price; 
+        const areaName = l.Area_Locality;
         opt.value = `${areaName}|${price}`;
         opt.innerText = `${areaName} (GH₵${price})`;
         areaSel.appendChild(opt);
@@ -1014,95 +914,7 @@ function updateCheckoutTotals() {
         document.getElementById('chkDistanceInfo').innerText = '';
     }
 }
-/*
-function initMap() {
-    const key = AppState.config['GOOGLE_MAPS_API_KEY'];
-    if (!key) {
-        document.getElementById('checkoutMap').innerHTML = `<div class='p-4 text-center text-red-500'>Google Maps API Key Missing.<br>Please contact admin.</div>`;
-        return;
-    }
- 
-    // Check if script already loaded
-    if (window.google && window.google.maps) {
-        loadMapComponents();
-        return;
-    }
- 
-    // Load Script Dynamically
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places,geometry&callback=loadMapComponents`;
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-}
- 
-window.loadMapComponents = function () {
-    const storeLoc = AppState.config['STORE_LATLNG'] || "5.6037,-0.1870"; // Default Accra
-    const [lat, lng] = storeLoc.split(',').map(Number);
-    const storePosition = { lat, lng };
- 
-    if (!document.getElementById("checkoutMap")) return;
- 
-    map = new google.maps.Map(document.getElementById("checkoutMap"), {
-        center: storePosition,
-        zoom: 12,
-        mapTypeControl: false,
-        streetViewControl: false
-    });
- 
-    // Marker for Store
-    new google.maps.Marker({ position: storePosition, map, icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png', title: "FAYM Store" });
- 
-    // Autocomplete
-    const input = document.getElementById("chkAddress");
-    autocomplete = new google.maps.places.Autocomplete(input);
-    autocomplete.bindTo("bounds", map);
-    autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        if (!place.geometry || !place.geometry.location) return;
- 
-        // Show on Map
-        if (place.geometry.viewport) map.fitBounds(place.geometry.viewport);
-        else {
-            map.setCenter(place.geometry.location);
-            map.setZoom(15);
-        }
-        new google.maps.Marker({ position: place.geometry.location, map });
- 
-        // Calculate Distance
-        const distMeters = google.maps.geometry.spherical.computeDistanceBetween(
-            new google.maps.LatLng(storePosition),
-            place.geometry.location
-        );
-        userDistanceKm = distMeters / 1000;
- 
-        // Calculate Fee
-        const base = Number(AppState.config['DELIVERY_BASE_FEE'] || 20);
-        const rate = Number(AppState.config['DELIVERY_PER_KM'] || 5);
-        deliveryFee = Math.ceil(base + (userDistanceKm * rate));
- 
-        updateCheckoutTotals();
-    });
-}
- 
-function updateCheckoutTotals() {
-    const subtotal = AppState.cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
-    const fee = deliveryMethod === 'delivery' ? deliveryFee : 0;
-    const total = subtotal + fee;
- 
-    document.getElementById('chkSubtotal').innerText = `${AppState.currency}${subtotal}`;
-    document.getElementById('chkDeliveryFee').innerText = fee > 0 ? `${AppState.currency}${fee}` : 'Free';
-    document.getElementById('chkTotal').innerText = `${AppState.currency}${total}`;
-    document.getElementById('payBtn').innerHTML = `<i class="bi bi-credit-card"></i> <span>Pay Now ${AppState.currency}${total}</span>`;
- 
-    if (deliveryMethod === 'delivery' && fee > 0) {
-        document.getElementById('chkDistanceInfo').innerText = `Distance: ${userDistanceKm.toFixed(1)} km`;
-    } else {
-        document.getElementById('chkDistanceInfo').innerText = '';
-    }
-}
- 
-*/
+
 // --- PAYSTACK PAYMENT ---
 function processPayment() {
     if (!AppState.user) {
@@ -1123,38 +935,11 @@ function processPayment() {
     const fee = deliveryMethod === 'delivery' ? deliveryFee : 0;
     const total = subtotal + fee;
 
-    // Open Paystack
     const paystackKey = AppState.config['PAYSTACK_PUBLIC_KEY'];
 
-    // --- TEST MODE (Localhost/File) ---
     if (window.location.protocol === 'file:' || AppState.config['TEST_MODE']) {
         console.log("Test Mode: Bypassing Paystack");
-        const mockRef = "TEST_" + new Date().getTime();
-        const orderPayload = {
-            storeName: "FAYM",
-            customerName: name,
-            phone: phone,
-            location: address,
-            deliveryMethod: deliveryMethod,
-            paymentMethod: "Paystack (Test)",
-            grandTotal: total,
-            items: AppState.cart.map(c => ({
-                sku_id: c.sku,
-                item_name: c.product_name,
-                size: c.size,
-                qty: c.qty,
-                price: c.price
-            })),
-            paymentReference: mockRef
-        };
-        // Simulated Backend Call
-        alert(`Test Mode: Payment Successful!\nRef: ${mockRef}\nSimulating Order Processing...`);
-        setTimeout(() => {
-            alert("Order Confirmed! Your Order ID: " + mockRef);
-            closeCheckout();
-            AppState.cart = [];
-            saveCart();
-        }, 1000);
+        alert("Payment Bypassed in Test Mode. Check console.");
         return;
     }
 
@@ -1166,7 +951,7 @@ function processPayment() {
     const handler = PaystackPop.setup({
         key: paystackKey,
         email: AppState.user.email,
-        amount: total * 100, // Kobo/Pesewas
+        amount: total * 100, 
         currency: 'GHS',
         metadata: {
             custom_fields: [
@@ -1176,10 +961,6 @@ function processPayment() {
             ]
         },
         callback: function (response) {
-            // VERIFY PAYMENT ON BACKEND
-            // alert("Payment Successful! Ref: " + response.reference + ". Saving Order...");
-
-            // Prepare Order Data
             const orderPayload = {
                 storeName: "FAYM",
                 customerName: name,
@@ -1193,12 +974,11 @@ function processPayment() {
                     item_name: c.product_name,
                     size: c.size,
                     qty: c.qty,
-                    price: c.price
+                    price: c.price // Sent for reference, but Backend will RE-VERIFY price
                 })),
-                paymentReference: response.reference // CRITICAL: This triggers Verification
+                paymentReference: response.reference 
             };
 
-            // Send to Backend
             fetch(API_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'processOrder', payload: orderPayload })
@@ -1210,7 +990,6 @@ function processPayment() {
                         closeCheckout();
                         AppState.cart = [];
                         saveCart();
-                        // Optional: openProfile();
                     } else {
                         alert("Order Verification Failed: " + data.message);
                     }
@@ -1223,13 +1002,15 @@ function processPayment() {
     });
     handler.openIframe();
 }
+
 function toggleCart() {
     const d = document.getElementById('cartDrawer');
     d.classList.toggle('translate-x-full');
     document.getElementById('cartBackdrop').classList.toggle('hidden');
     setTimeout(() => document.getElementById('cartBackdrop').classList.toggle('opacity-0'), 10);
 }
-// --- OTHER UI ---
+
+// --- HERO SLIDER ---
 let heroInterval;
 function initHero() {
     const con = document.getElementById('sliderContainer');
@@ -1237,7 +1018,6 @@ function initHero() {
     const subTitleEl = document.getElementById('heroSubtext');
     const ctaBtn = document.getElementById('heroBtn');
 
-    // 1. Gather Slides
     const slides = [];
     for (let i = 1; i <= 5; i++) {
         const url = AppState.config[`hero_slide_${i}_url`];
@@ -1253,14 +1033,11 @@ function initHero() {
 
     if (slides.length === 0) return;
 
-    // 2. Render Slides DOM
-    // Uses translateX for sliding. Initial state: Index 0 is visible (0%), others hidden (100%).
     const slidesHtml = slides.map((s, i) => {
         const media = s.type === 'video'
             ? `<video src="${s.url}" class="w-full h-full object-cover" muted loop playsinline></video>`
             : `<img src="${s.url}" class="w-full h-full object-cover">`;
 
-        // Initial Styles
         const style = i === 0 ? 'transform: translateX(0); z-index: 10; opacity: 1;' : 'transform: translateX(100%); z-index: 0; opacity: 0;';
 
         return `<div class="absolute inset-0 transition-transform duration-500 ease-in-out bg-gray-100" style="${style}" data-index="${i}">
@@ -1269,7 +1046,6 @@ function initHero() {
                 </div>`;
     }).join('');
 
-    // 3. Render Controls (Arrows & Dots)
     const controlsHtml = `
         <button id="heroPrev" class="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/20 text-white backdrop-blur-md hover:bg-black/50 hover:scale-110 transition hidden md:block">
             <i class="bi bi-chevron-left text-2xl"></i>
@@ -1284,34 +1060,26 @@ function initHero() {
 
     con.innerHTML = slidesHtml + controlsHtml;
 
-    // 4. Setup State & Logic
     let curIdx = 0;
     let isAnimating = false;
 
-    // Helper to update text
     const updateText = (idx) => {
         const txt = slides[idx].text;
         const sub = slides[idx].subtext;
 
-        // Fade Out
         titleEl.style.opacity = '0';
         if (subTitleEl) subTitleEl.style.opacity = '0';
 
         setTimeout(() => {
-            // Update Content
             titleEl.innerText = txt;
             if (subTitleEl) {
                 subTitleEl.innerText = sub;
-                if (!sub) subTitleEl.style.display = 'none';
-                else subTitleEl.style.display = 'block';
+                subTitleEl.style.display = sub ? 'block' : 'none';
             }
-
-            // Fade In
             titleEl.style.opacity = '1';
             if (subTitleEl && sub) subTitleEl.style.opacity = '1';
         }, 500);
 
-        // Update Dots
         const dots = document.getElementById('heroDots').children;
         Array.from(dots).forEach((dot, i) => {
             dot.className = i === idx
@@ -1320,11 +1088,9 @@ function initHero() {
         });
     };
 
-    // Initialize Text
     updateText(0);
     ctaBtn.classList.remove('opacity-0');
 
-    // Slide Transition Logic
     const transitionSlide = (nextIdx, direction) => {
         if (isAnimating || nextIdx === curIdx) return;
         isAnimating = true;
@@ -1333,54 +1099,43 @@ function initHero() {
         const currEl = slideEls[curIdx];
         const nextEl = slideEls[nextIdx];
 
-        // Videos
         const nextVid = nextEl.querySelector('video');
         if (nextVid) nextVid.play().catch(() => { });
 
-        // Determine positions
-        // Next: Curr (-100%), Next starts (100%) -> (0%)
-        // Prev: Curr (100%), Next starts (-100%) -> (0%)
         const startPos = direction === 'next' ? '100%' : '-100%';
         const endPos = direction === 'next' ? '-100%' : '100%';
 
-        // Prepare Next Slide (Instant)
         nextEl.style.transition = 'none';
         nextEl.style.transform = `translateX(${startPos})`;
         nextEl.style.zIndex = '20';
         nextEl.style.opacity = '1';
 
-        // Force Reflow
         void nextEl.offsetWidth;
 
-        // Animate (Restore Transition)
         const transitionStyle = 'transform 0.5s ease-in-out';
         currEl.style.transition = transitionStyle;
         nextEl.style.transition = transitionStyle;
 
-        // Execute Move
         requestAnimationFrame(() => {
             currEl.style.transform = `translateX(${endPos})`;
             nextEl.style.transform = `translateX(0)`;
         });
 
-        // Cleanup
         setTimeout(() => {
             currEl.style.zIndex = '0';
-            currEl.style.opacity = '0'; // Hide
+            currEl.style.opacity = '0'; 
             const currVid = currEl.querySelector('video');
             if (currVid) { currVid.pause(); currVid.currentTime = 0; }
 
             isAnimating = false;
-        }, 500); // Match duration
+        }, 500);
 
         curIdx = nextIdx;
         updateText(curIdx);
     };
 
-    // Globalize jump
     window.jumpToSlide = (idx) => {
         if (idx === curIdx) return;
-        // Logic: if target > current, assume next, else prev
         const dir = idx > curIdx ? 'next' : 'prev';
         transitionSlide(idx, dir);
         resetTimer();
@@ -1396,13 +1151,11 @@ function initHero() {
         transitionSlide(prev, 'prev');
     };
 
-    // Bind Buttons
     const nextBtn = document.getElementById('heroNext');
     const prevBtn = document.getElementById('heroPrev');
     if (nextBtn) nextBtn.onclick = () => { nextSlide(); resetTimer(); };
     if (prevBtn) prevBtn.onclick = () => { prevSlide(); resetTimer(); };
 
-    // Auto Play
     const startCycle = () => {
         if (slides.length > 1) {
             clearInterval(heroInterval);
@@ -1415,8 +1168,7 @@ function initHero() {
     };
     startCycle();
 
-    // 5. Touch / Swipe Support
-    // 5. Touch / Swipe Support (Active Tracking)
+    // SWIPE SUPPORT
     let touchStartX = 0;
     let touchStartY = 0;
     let currentDragX = 0;
@@ -1430,7 +1182,6 @@ function initHero() {
         isDragging = true;
         clearInterval(heroInterval);
 
-        // Prepare neighbors
         const slideEls = Array.from(con.children).filter(el => el.hasAttribute('data-index'));
         const prevIdx = (curIdx - 1 + slides.length) % slides.length;
         const nextIdx = (curIdx + 1) % slides.length;
@@ -1438,10 +1189,8 @@ function initHero() {
         const prevEl = slideEls[prevIdx];
         const nextEl = slideEls[nextIdx];
 
-        // Disable transitions for instant tracking
         [currEl, prevEl, nextEl].forEach(el => el.style.transition = 'none');
 
-        // Position neighbors invisible but ready
         prevEl.style.transform = 'translateX(-100%)';
         prevEl.style.opacity = '1';
         prevEl.style.zIndex = '5';
@@ -1450,7 +1199,6 @@ function initHero() {
         nextEl.style.opacity = '1';
         nextEl.style.zIndex = '5';
 
-        // Current stays on top
         currEl.style.zIndex = '10';
     };
 
@@ -1461,30 +1209,21 @@ function initHero() {
         const diffX = cx - touchStartX;
         const diffY = cy - touchStartY;
 
-        // Lock scroll if mostly horizontal
         if (Math.abs(diffX) > Math.abs(diffY)) e.preventDefault();
 
         currentDragX = cx;
-
         const slideEls = Array.from(con.children).filter(el => el.hasAttribute('data-index'));
-        const prevIdx = (curIdx - 1 + slides.length) % slides.length;
         const nextIdx = (curIdx + 1) % slides.length;
+        const prevIdx = (curIdx - 1 + slides.length) % slides.length;
 
         const currEl = slideEls[curIdx];
         const prevEl = slideEls[prevIdx];
         const nextEl = slideEls[nextIdx];
 
-        // Move Current
         currEl.style.transform = `translateX(${diffX}px)`;
 
-        // Move Neighbors
-        if (diffX < 0) {
-            // Dragging Left -> showing Next
-            nextEl.style.transform = `translateX(calc(100% + ${diffX}px))`;
-        } else {
-            // Dragging Right -> showing Prev
-            prevEl.style.transform = `translateX(calc(-100% + ${diffX}px))`;
-        }
+        if (diffX < 0) nextEl.style.transform = `translateX(calc(100% + ${diffX}px))`;
+        else prevEl.style.transform = `translateX(calc(-100% + ${diffX}px))`;
     };
 
     heroSec.ontouchend = (e) => {
@@ -1493,7 +1232,6 @@ function initHero() {
         const diff = currentDragX - touchStartX;
         const threshold = 50;
 
-        // Restore Transitions
         const slideEls = Array.from(con.children).filter(el => el.hasAttribute('data-index'));
         const prevIdx = (curIdx - 1 + slides.length) % slides.length;
         const nextIdx = (curIdx + 1) % slides.length;
@@ -1505,17 +1243,14 @@ function initHero() {
         [currEl, prevEl, nextEl].forEach(el => el.style.transition = trans);
 
         if (Math.abs(diff) > threshold) {
-            // Complete the Move
             isAnimating = true;
             if (diff < 0) {
-                // Next
                 requestAnimationFrame(() => {
                     currEl.style.transform = 'translateX(-100%)';
                     nextEl.style.transform = 'translateX(0)';
                 });
                 finishSwipe(nextIdx);
             } else {
-                // Prev
                 requestAnimationFrame(() => {
                     currEl.style.transform = 'translateX(100%)';
                     prevEl.style.transform = 'translateX(0)';
@@ -1523,13 +1258,11 @@ function initHero() {
                 finishSwipe(prevIdx);
             }
         } else {
-            // Revert / Snap Back
             requestAnimationFrame(() => {
                 currEl.style.transform = 'translateX(0)';
                 prevEl.style.transform = 'translateX(-100%)';
                 nextEl.style.transform = 'translateX(100%)';
             });
-            // Cleanup Neighbor Opacity after snap
             setTimeout(() => {
                 prevEl.style.opacity = '0';
                 nextEl.style.opacity = '0';
@@ -1544,17 +1277,15 @@ function initHero() {
             slideEls.forEach((el, i) => {
                 if (i !== targetIdx) {
                     el.style.zIndex = '0';
-                    el.style.opacity = '0'; // Hide others
+                    el.style.opacity = '0';
                 } else {
-                    el.style.zIndex = '10'; // Active
+                    el.style.zIndex = '10';
                     el.style.opacity = '1';
                 }
             });
-            // Pause/Reset Videos of OLD slide
             const oldVid = slideEls[curIdx].querySelector('video');
             if (oldVid) { oldVid.pause(); oldVid.currentTime = 0; }
 
-            // Play Video of NEW slide
             const newVid = slideEls[targetIdx].querySelector('video');
             if (newVid) newVid.play().catch(() => { });
 
@@ -1564,13 +1295,11 @@ function initHero() {
         }, 500);
     };
 
-    // Pause on Hover
     heroSec.onmouseenter = () => clearInterval(heroInterval);
     heroSec.onmouseleave = startCycle;
 }
 function scrollToGrid() { document.getElementById('productGrid').scrollIntoView({ behavior: 'smooth' }); }
 
-// Size Guide
 function openSizeGuideModal() {
     document.getElementById('sizeGuideModal').classList.remove('hidden');
     document.getElementById('sizeGuideModal').classList.add('flex');
