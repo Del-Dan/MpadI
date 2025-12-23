@@ -15,17 +15,27 @@ const AppState = {
 const formatImage = (url) => {
     if (!url) return 'https://via.placeholder.com/400x500?text=No+Image';
 
-    // Check for Google Drive Links
+    // --- 1. CLOUDINARY HANDLING (New Speed Boost) ---
+    if (url.includes('cloudinary.com')) {
+        // If the link is already optimized, just return it.
+        if (url.includes('f_auto') || url.includes('q_auto')) {
+            return url;
+        }
+        // Otherwise, inject the optimization parameters after "/upload/"
+        return url.replace('/upload/', '/upload/f_auto,q_auto/');
+    }
+
+    // --- 2. GOOGLE DRIVE HANDLING (Legacy Support) ---
     if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
-        // Regex to catch /d/ID or id=ID
         const driveRegex = /(?:\/d\/|id=)([-\w]{25,})/;
         const match = url.match(driveRegex);
         if (match && match[1]) {
-            return `https://lh3.googleusercontent.com/d/${match[1]}`;
-        } else {
-            console.warn("Could not parse Drive ID from:", url);
+            // "sz=s1000" requests a high-res version up to 1000px
+            return `https://lh3.googleusercontent.com/d/$${match[1]}=s1000`;
         }
     }
+
+    // --- 3. GENERIC / OTHER LINKS ---
     return url;
 };
 
