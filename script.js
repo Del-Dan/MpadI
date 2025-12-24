@@ -60,8 +60,9 @@ async function initApp() {
             ...p,
             base_price: Number(p.base_price),
             discount_price: Number(p.discount_price),
-            is_new: String(p.is_new).toUpperCase() === 'TRUE'
-        }));
+            is_new: String(p.is_new).toUpperCase() === 'TRUE',
+            is_active: String(p.is_active).toUpperCase() === 'TRUE'
+        })).filter(p => p.is_active);
 
         AppState.inventory = res.inventory;
         AppState.config = res.config;
