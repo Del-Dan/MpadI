@@ -1050,6 +1050,28 @@ function updateCheckoutTotals() {
     }
 }
 
+// --- PAYMENT TOGGLE ---
+function togglePaymentMethod(method) {
+    const radios = document.getElementsByName('paymentMethod');
+    radios.forEach(r => {
+        const label = r.closest('label');
+        if (r.checked) {
+            label.classList.add('parent-active', 'border-black');
+            label.classList.remove('border-gray-200');
+        } else {
+            label.classList.remove('parent-active', 'border-black');
+            label.classList.add('border-gray-200');
+        }
+    });
+
+    const btn = document.getElementById('payBtn');
+    if (method === 'cod') {
+        btn.innerHTML = `<i class="bi bi-bag-check-fill"></i> <span>Order Now</span>`;
+    } else {
+        btn.innerHTML = `<i class="bi bi-credit-card"></i> <span>Pay Now</span>`;
+    }
+}
+
 // --- PAYSTACK PAYMENT ---
 
 async function processPayment() {
@@ -1134,13 +1156,26 @@ async function processPayment() {
             .catch(err => showToast("Network Error: " + err, "error"));
     };
 
+    // --- DETERMINE PAYMENT METHOD ---
+    const paymentMethodEl = document.querySelector('input[name="paymentMethod"]:checked');
+    const paymentMethod = paymentMethodEl ? paymentMethodEl.value : 'paystack';
+
     // --- TEST MODE HANDLING ---
-    if (window.location.protocol === 'file:' || AppState.config['TEST_MODE']) {
+    if (window.location.protocol === 'file:') {
         console.log("Test Mode: Bypassing Paystack");
         submitOrder("TEST-" + Date.now(), "Test Mode");
         return;
     }
 
+    // --- COD FLOW ---
+    if (paymentMethod === 'cod') {
+        // Confirmation for COD
+        if (!confirm("Confirm Cash on Delivery Order?")) return;
+        submitOrder("N/A", "COD");
+        return;
+    }
+
+    // --- PAYSTACK FLOW ---
     const paystackKey = AppState.config['PAYSTACK_PUBLIC_KEY'];
     // USE INPUT EMAIL FOR PAYSTACK
     const paystackEmail = emailVal || "guest@faymstore.com";
