@@ -1111,7 +1111,11 @@ async function processPayment() {
         showToast("Checking availability...", "info");
         const stockPayload = { items: AppState.cart.map(c => ({ sku_id: c.sku, item_name: c.product_name, qty: c.qty })) };
         try {
-            const valRes = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'validateStock', payload: stockPayload }) });
+            const valRes = await fetch(API_URL, {
+                method: 'POST',
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({ action: 'validateStock', payload: stockPayload })
+            });
             const valData = await valRes.json();
             if (!valData.success) { showToast(valData.message, "error"); return; }
         } catch (e) { showToast("Network Error: Could not check stock.", "error"); return; }
@@ -1141,6 +1145,7 @@ async function processPayment() {
 
         fetch(API_URL, {
             method: 'POST',
+            headers: { "Content-Type": "text/plain" },
             body: JSON.stringify({ action: 'processOrder', payload: orderPayload })
         })
             .then(res => res.json())
