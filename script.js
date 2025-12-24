@@ -1052,7 +1052,7 @@ function updateCheckoutTotals() {
 
 // --- PAYSTACK PAYMENT ---
 
-function processPayment() {
+async function processPayment() {
     const name = document.getElementById('chkName').value;
     const phone = document.getElementById('chkPhone').value;
     // FETCH EMAIL
@@ -1082,6 +1082,17 @@ function processPayment() {
     const subtotal = AppState.cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
     const fee = deliveryMethod === 'delivery' ? deliveryFee : 0;
     const total = subtotal + fee;
+
+    // --- VALIDATE STOCK BEFORE PAYING ---
+    if (window.location.protocol !== 'file:') {
+        showToast("Checking availability...", "info");
+        const stockPayload = { items: AppState.cart.map(c => ({ sku_id: c.sku, item_name: c.product_name, qty: c.qty })) };
+        try {
+            const valRes = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'validateStock', payload: stockPayload }) });
+            const valData = await valRes.json();
+            if (!valData.success) { showToast(valData.message, "error"); return; }
+        } catch (e) { showToast("Network Error: Could not check stock.", "error"); return; }
+    }
 
     // --- Helper to Submit to Backend ---
     const submitOrder = (reference, paymentMethodLabel) => {
