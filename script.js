@@ -29,7 +29,7 @@ const formatImage = (url) => {
         const match = url.match(driveRegex);
         if (match && match[1]) {
             // "sz=s1000" requests high-res
-            return `https://lh3.googleusercontent.com/d/$${match[1]}=s1000`;
+            return `https://lh3.googleusercontent.com/d/${match[1]}=s1000`;
         }
     }
 
@@ -42,7 +42,18 @@ async function initApp() {
     renderCartCount();
     checkSession();
     try {
-        const res = await fetch(`${API_URL}?action=getStoreData`).then(r => r.json());
+        console.log("Fetching Store Data from:", API_URL);
+        const response = await fetch(`${API_URL}?action=getStoreData`);
+
+        if (!response.ok) throw new Error("Network response was not ok");
+
+        const res = await response.json();
+        console.log("Data Received:", res);
+
+        if (!res || !res.products) {
+            console.error("Invalid Data Structure:", res);
+            throw new Error("Invalid Data Received");
+        }
 
         // Data Transformation
         AppState.products = res.products.map(p => ({
@@ -60,12 +71,13 @@ async function initApp() {
 
     } catch (e) {
         console.error("Critical Init Error", e);
-        // User-friendly error screen (No Mock Data for Production)
+        // User-friendly error screen
         document.getElementById('productGrid').innerHTML = `
             <div class="col-span-full py-20 text-center">
                 <i class="bi bi-wifi-off text-6xl text-gray-300 mb-4 block"></i>
                 <h2 class="text-xl font-bold text-gray-800">Connection Failed</h2>
                 <p class="text-gray-500 mb-6">We couldn't load the store. Please check your internet.</p>
+                <div class="text-xs text-red-400 mb-4 px-4">${e.message}</div>
                 <button onclick="window.location.reload()" class="bg-black text-white px-6 py-2 rounded-full font-bold hover:bg-gray-800 transition">Retry</button>
             </div>
         `;
@@ -137,12 +149,7 @@ function renderWishlist() {
     const div = document.getElementById('paneWishlist');
     div.innerHTML = '';
 
-    // Filter Products
     const likedCodes = AppState.favorites;
-    // Find variants that match sub_code
-    // Issue: AppState.products list variants individually? No, grouped by parent usually in UI?
-    // Actually AppState.products is raw list of ALL variants.
-
     const likedProds = AppState.products.filter(p => likedCodes.includes(p.sub_code));
 
     if (likedProds.length === 0) {
@@ -151,7 +158,6 @@ function renderWishlist() {
     }
 
     likedProds.forEach(p => {
-        // Mini Card
         const el = document.createElement('div');
         el.className = "border rounded cursor-pointer hover:shadow-md transition bg-white";
         el.onclick = () => { closeProfile(); openProductModal(p); };
@@ -179,15 +185,23 @@ async function loadOrderHistory() {
         }).then(r => r.json());
 
         if (res.success && res.orders.length > 0) {
-            div.innerHTML = res.orders.map(o => `
+            div.innerHTML = res.orders.map(o => {
+                // Safe date formatting
+                let dateStr = "Date Unknown";
+                try {
+                    dateStr = new Date(o.date).toLocaleDateString();
+                    if (dateStr === "Invalid Date") dateStr = String(o.date).split('T')[0];
+                } catch (e) { dateStr = String(o.date); }
+
+                return `
                 <div class="border rounded-lg p-3 text-sm">
                     <div class="flex justify-between items-start mb-2">
                         <div>
                             <div class="font-bold">#${o.order_id}</div>
-                            <div class="text-xs text-gray-500">${new Date(o.date).toLocaleDateString()}</div>
+                            <div class="text-xs text-gray-500">${dateStr}</div>
                         </div>
                         <div class="px-2 py-1 rounded text-xs font-bold ${getStatusColor(o.status)}">
-                            ${o.status.toUpperCase()}
+                            ${o.status ? o.status.toUpperCase() : 'UNKNOWN'}
                         </div>
                     </div>
                     <div class="space-y-1 mb-2">
@@ -198,7 +212,7 @@ async function loadOrderHistory() {
                         <span class="font-bold">${AppState.currency}${o.total}</span>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         } else {
             div.innerHTML = `<div class="text-center py-8 text-gray-500"><i class="bi bi-bag-x text-4xl mb-2 block"></i><p>No orders found.</p></div>`;
         }
@@ -208,6 +222,7 @@ async function loadOrderHistory() {
 }
 
 function getStatusColor(status) {
+    if (!status) return 'bg-gray-100 text-gray-800';
     switch (status.toLowerCase()) {
         case 'pending': return 'bg-yellow-100 text-yellow-800';
         case 'paid': return 'bg-blue-100 text-blue-800';
@@ -395,11 +410,12 @@ async function handleForgotPass(e) {
     try {
         const res = await fetch(API_URL, {
             method: 'POST',
-            body: JSON.stringify({ action: 'forgotPassword', payload: { email: f.email.value.trim() } })
+            body: JSON.stringify({ action: 'sendForgotOtp', payload: { email: f.email.value.trim() } })
         }).then(r => r.json());
 
         if (res.success) {
-            alert("OTP sent to your email (Valid for 15 mins). Check Spam/Inbox.");
+            alert("OTP sent to your email (Valid for 10 mins). Check Spam/Inbox.");
+            // Ideally switch to an OTP verification screen, but for now redirecting to login as per flow
             switchAuth('login');
         } else {
             showError(f.email, res.message || "User not found");
@@ -537,7 +553,8 @@ function runSearchOrFilter() {
 
         if (sortMode === 'priceLow') return priceA - priceB;
         if (sortMode === 'priceHigh') return priceB - priceA;
-        return 0; // Default (Order from Sheets)
+        // Default 'newest' relies on sheet order or is_new flag logic if refined
+        return 0;
     });
 
     if (!document.getElementById('searchOverlay').classList.contains('hidden')) {
@@ -583,7 +600,6 @@ async function initGallery(varData) {
 
     if (varData.gallery_images) {
         const raw = varData.gallery_images;
-        // Direct Comma-Separated Links (Cloudinary Preferred)
         const list = raw.split(',').map(s => formatImage(s.trim())).filter(s => s && s !== mainImg);
         currentGallery.push(...list);
     }
@@ -822,6 +838,10 @@ function checkout() {
     if (AppState.user) {
         document.getElementById('chkName').value = AppState.user.fullName || '';
         document.getElementById('chkPhone').value = AppState.user.phone || '';
+        // PREFILL EMAIL
+        document.getElementById('chkEmail').value = AppState.user.email || '';
+    } else {
+        document.getElementById('chkEmail').value = '';
     }
 
     const cDiv = document.getElementById('chkItems');
@@ -837,8 +857,8 @@ function checkout() {
     `).join('');
 
     const options = { month: 'short', day: 'numeric' };
-    const dateStart = new Date(); dateStart.setDate(dateStart.getDate() + 5);
-    const dateEnd = new Date(); dateEnd.setDate(dateEnd.getDate() + 14);
+    const dateStart = new Date(); dateStart.setDate(dateStart.getDate() + 2);
+    const dateEnd = new Date(); dateEnd.setDate(dateEnd.getDate() + 5);
     document.getElementById('chkEstDate').innerText = `${dateStart.toLocaleDateString(undefined, options)} - ${dateEnd.toLocaleDateString(undefined, options)}`;
 
     if (deliveryMethod === 'delivery') initZoneDropdowns();
@@ -963,13 +983,20 @@ function updateCheckoutTotals() {
 // --- PAYSTACK PAYMENT ---
 
 function processPayment() {
-    // Note: Guest Checkout is allowed. We check fields, not "AppState.user".
     const name = document.getElementById('chkName').value;
     const phone = document.getElementById('chkPhone').value;
+    // FETCH EMAIL
+    const emailVal = document.getElementById('chkEmail').value;
     const address = deliveryMethod === 'delivery' ? document.getElementById('chkAddress').value : "Store Pickup";
 
     if (!name || !phone || (deliveryMethod === 'delivery' && !address)) {
-        showToast("Please complete all fields.", "error");
+        showToast("Please complete all contact and address fields.", "error");
+        return;
+    }
+
+    // VALIDATE EMAIL
+    if (!emailVal || !emailVal.includes('@')) {
+        showToast("Please enter a valid email for the receipt.", "error");
         return;
     }
 
@@ -993,6 +1020,7 @@ function processPayment() {
             storeName: "FAYM",
             customerName: name,
             phone: phone,
+            email: emailVal, // INCLUDED IN PAYLOAD
             location: address,
             deliveryMethod: deliveryMethod,
             paymentMethod: paymentMethodLabel || "Paystack",
@@ -1033,7 +1061,8 @@ function processPayment() {
     }
 
     const paystackKey = AppState.config['PAYSTACK_PUBLIC_KEY'];
-    const userEmail = AppState.user ? AppState.user.email : "guest@faymstore.com";
+    // USE INPUT EMAIL FOR PAYSTACK
+    const paystackEmail = emailVal || "guest@faymstore.com";
 
     if (!paystackKey) {
         showToast("System Error: Payment Config Missing", "error");
@@ -1043,7 +1072,7 @@ function processPayment() {
     // --- PAYSTACK POPUP ---
     const handler = PaystackPop.setup({
         key: paystackKey,
-        email: userEmail,
+        email: paystackEmail,
         amount: total * 100,
         currency: 'GHS',
         metadata: {
@@ -1228,10 +1257,8 @@ function initHero() {
     };
     startCycle();
 
-    // SWIPE SUPPORT -> (Existing logic remains same, just shortened for snippet context)
-    // ... (Use existing swipe logic)
+    // SWIPE SUPPORT
     let touchStartX = 0;
-    // ... (Keep existing touch handlers intact)
     let touchStartY = 0;
     let currentDragX = 0;
     let isDragging = false;

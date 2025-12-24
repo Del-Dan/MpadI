@@ -252,10 +252,14 @@
 
                 <div class="mb-6 space-y-4">
                     <h3 class="font-bold text-sm uppercase tracking-wide text-gray-500">Contact Information</h3>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input type="text" id="chkName" placeholder="Full Name"
                             class="w-full p-3 bg-white border border-gray-200 rounded focus:border-black outline-none transition">
                         <input type="tel" id="chkPhone" placeholder="Phone Number"
+                            class="w-full p-3 bg-white border border-gray-200 rounded focus:border-black outline-none transition">
+                    </div>
+                    <div class="w-full">
+                        <input type="email" id="chkEmail" placeholder="Email Address (For Receipt)"
                             class="w-full p-3 bg-white border border-gray-200 rounded focus:border-black outline-none transition">
                     </div>
                 </div>
@@ -492,7 +496,6 @@
             </div>
 
             <div id="paneWishlist" class="hidden grid grid-cols-2 gap-3">
-                <!-- Wishlist Grid -->
             </div>
         </div>
     </div>
